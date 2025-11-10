@@ -1,0 +1,3 @@
+[submodule "submodules/esp-hal"]
+	path = submodules/esp-hal
+	url = https://github.com/esp-rs/esp-hal.git
