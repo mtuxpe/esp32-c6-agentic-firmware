@@ -68,15 +68,40 @@ cd lesson-01-blinky
 ```
 
 This creates a properly configured project with:
-- Correct `.cargo/config.toml` with espflash runner
-- `build.rs` for linker configuration
-- `rust-toolchain.toml` with correct Rust version
+- `.cargo/config.toml` with espflash runner
+- `build.rs` for linker configuration and helpful error messages
+- `rust-toolchain.toml` with correct Rust version and target
 - `Cargo.toml` with base dependencies
-- Skeleton `src/main.rs`
+- Skeleton code in `src/bin/main.rs` and `src/lib.rs`
 
-### Step 2: Update Cargo.toml
+**Note**: `esp-generate` creates a more complex structure with `src/bin/main.rs` and a `[[bin]]` section in `Cargo.toml`. This is useful for projects with multiple binaries, but for learning we'll simplify to the standard `src/main.rs` structure.
 
-Replace the `[dependencies]` section with:
+### Step 2: Simplify Project Structure
+
+```bash
+# Move main.rs to standard location
+mv src/bin/main.rs src/main.rs
+rmdir src/bin
+rm src/lib.rs
+```
+
+### Step 3: Update Cargo.toml
+
+Edit `Cargo.toml` and make these changes:
+
+**a) Remove the `[[bin]]` section** (lines that look like this):
+```toml
+[[bin]]
+name = "lesson-01-blinky"
+path = "./src/bin/main.rs"
+```
+
+**b) Change edition** from `"2024"` to `"2021"`:
+```toml
+edition = "2021"  # was "2024"
+```
+
+**c) Add logging dependencies**. Your `[dependencies]` section should look like:
 
 ```toml
 [dependencies]
@@ -97,17 +122,33 @@ esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
 critical-section = "1.2.0"
 ```
 
-**Key dependencies explained**:
-- `esp-hal` - Hardware abstraction layer with `unstable` for latest features
-- `esp-backtrace` - Panic handler with println support for debugging
-- `esp-println` - Serial printing with `log` integration
-- `log` - Standard Rust logging framework (info!, debug!, warn! macros)
+**What we added**:
+- `esp-backtrace` - Better panic messages with stack traces
+- `esp-println` - Serial output with `log` crate integration
+- `log` - Standard Rust logging (`info!()`, `debug!()`, `warn!()` macros)
+- `"unstable"` feature to `esp-hal` - Enables latest drivers
+
+**What was already there**:
+- `esp-hal` - Hardware abstraction layer for ESP32-C6
 - `esp-bootloader-esp-idf` - Required by ESP bootloader
-- `critical-section` - Safe concurrent access to shared resources
+- `critical-section` - Thread-safe critical sections
 
-### Step 3: Add Cargo Aliases (Optional but Recommended)
+### Step 4: Update .cargo/config.toml
 
-Add to `.cargo/config.toml`:
+Edit `.cargo/config.toml`:
+
+**a) Remove `--monitor` flag** from the runner (line 2):
+```toml
+# Change from:
+runner = "espflash flash --monitor --chip esp32c6"
+
+# To:
+runner = "espflash flash --chip esp32c6"
+```
+
+This separates flashing from monitoring, giving you more control.
+
+**b) Add cargo aliases** at the end of the file:
 
 ```toml
 [alias]
@@ -116,11 +157,19 @@ ck = "check"                  # ck = check syntax only (very fast)
 ff = "run --release"          # ff = flash firmware (build + flash)
 ```
 
-### Step 4: Write the Code
+### Step 5: Write the Code
 
-Replace `src/main.rs` with the Blinky code (see this lesson's `src/main.rs`).
+Replace the generated skeleton in `src/main.rs` with the Blinky code.
 
-### Step 5: Build & Flash
+You can copy from this lesson's `src/main.rs` or type it out yourself (recommended for learning!).
+
+Key changes from the generated code:
+- Add GPIO output and input configuration
+- Add structured logging with `info!()` macro
+- Use `Delay::new()` for timing (simpler than `Instant::now()`)
+- Implement blink loop with state monitoring
+
+### Step 6: Build & Flash
 
 ```bash
 # Build
@@ -129,6 +178,19 @@ cargo build --release
 # Flash to ESP32-C6
 cargo run --release
 ```
+
+### Summary: What We Changed from esp-generate Defaults
+
+| What | esp-generate Default | Our Simplified Version | Why? |
+|------|---------------------|----------------------|------|
+| Project structure | `src/bin/main.rs` + `src/lib.rs` | `src/main.rs` | Simpler, standard Rust structure |
+| Cargo.toml | Has `[[bin]]` section | No `[[bin]]` section | Cargo auto-finds `src/main.rs` |
+| Edition | `"2024"` | `"2021"` | More stable, widely used |
+| Dependencies | Minimal (no logging) | Added logging crates | Essential for debugging |
+| Runner | `espflash flash --monitor` | `espflash flash` | Separate flash from monitor |
+| Aliases | None | Added `br`, `ck`, `ff` | Speed up development |
+
+**Why simplify?** For YouTube tutorials and learning, simpler is better. You can always add complexity later when needed.
 
 ### Using Cargo Aliases (Faster)
 
