@@ -1,11 +1,11 @@
 [package]
-name = "lesson-02-simple-tasks"
+name = "lesson-01-button-neopixel"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 
 [[bin]]
-name = "lesson-02-simple-tasks"
+name = "lesson-01-button-neopixel"
 path = "./src/bin/main.rs"
 
 [dependencies]
@@ -24,6 +24,10 @@ esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
 
 # Critical sections
 critical-section = "1.2.0"
+
+# SmartLED driver for NeoPixel
+esp-hal-smartled2 = { version = "0.26", features = ["esp32c6"] }
+smart-leds = "0.4"
 
 [profile.dev]
 opt-level = "s"

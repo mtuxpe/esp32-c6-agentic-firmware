@@ -5,7 +5,7 @@ import sys
 
 port = '/dev/cu.usbserial-10'
 baudrate = 115200
-duration = 12  # Read for 12 seconds
+duration = 20  # Read for 20 seconds
 
 try:
     ser = serial.Serial(port, baudrate, timeout=0.5)
