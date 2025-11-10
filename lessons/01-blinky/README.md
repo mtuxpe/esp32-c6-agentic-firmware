@@ -1,20 +1,8 @@
 # Lesson 01: Blinky
-## The "Hello World" of Embedded Systems
+## Basic GPIO Output & Input
 
-**Goal**: Blink an LED using esp-hal 1.0.0 in the simplest way possible.
-
-**Duration**: 15 minutes
-
----
-
-## 🎯 Learning Objectives
-
-After completing this lesson, you will understand:
-1. ✅ Basic esp-hal 1.0.0 initialization
-2. ✅ GPIO output configuration
-3. ✅ Blocking delays for timing
-4. ✅ Logging for debugging
-5. ✅ The minimal firmware structure
+**Duration:** 20 minutes
+**Goal:** Understand GPIO control and see logs on serial output
 
 ---
 
@@ -23,14 +11,14 @@ After completing this lesson, you will understand:
 ### Hardware
 - ESP32-C6 development board
 - USB-C cable
-- Onboard LED (typically on GPIO8)
+- Optional: LED + resistor connected to GPIO13
 
 ### Software
 ```bash
-# Install Rust (if not already installed)
+# Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Add RISC-V target for ESP32-C6
+# Add RISC-V target
 rustup target add riscv32imac-unknown-none-elf
 
 # Install flashing tool
@@ -39,346 +27,226 @@ cargo install espflash
 
 ---
 
-## 📖 Code Walkthrough
+## 🚀 Creating Your First Embedded Rust Project
 
-### The Complete Code (30 lines!)
+### Step 1: Create a New Project
 
-```rust
-#![no_std]
-#![no_main]
-
-use esp_backtrace as _;
-use esp_hal::{delay::Delay, gpio::{Level, Output, OutputConfig}, main};
-use log::info;
-
-esp_bootloader_esp_idf::esp_app_desc!();
-
-#[main]
-fn main() -> ! {
-    esp_println::logger::init_logger_from_env();
-    info!("🚀 Starting Blinky");
-
-    let peripherals = esp_hal::init(esp_hal::Config::default());
-    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
-    let delay = Delay::new();
-
-    loop {
-        led.set_high();
-        delay.delay_millis(1000);
-        led.set_low();
-        delay.delay_millis(1000);
-    }
-}
-```
-
-### Breaking it Down
-
-#### 1. **Attributes** (Lines 1-2)
-```rust
-#![no_std]   // Don't use standard library (too big for embedded)
-#![no_main]  // We define our own entry point
-```
-
-#### 2. **Imports** (Lines 4-6)
-```rust
-use esp_backtrace as _;  // Crash handler
-use esp_hal::{...};      // Hardware abstraction layer
-use log::info;           // Logging macro
-```
-
-#### 3. **Entry Point** (Line 10)
-```rust
-#[main]
-fn main() -> ! {  // Never returns (infinite loop inside)
-```
-
-#### 4. **Initialization** (Lines 11-15)
-```rust
-esp_println::logger::init_logger_from_env();           // Enable logging
-let peripherals = esp_hal::init(...);                  // Initialize HAL
-let mut led = Output::new(peripherals.GPIO8, ...);     // Configure GPIO
-let delay = Delay::new();                               // Create delay provider
-```
-
-#### 5. **Main Loop** (Lines 17-22)
-```rust
-loop {
-    led.set_high();           // LED on
-    delay.delay_millis(1000); // Wait 1s
-    led.set_low();            // LED off
-    delay.delay_millis(1000); // Wait 1s
-}
-```
-
----
-
-## 🛠️ Building and Running
-
-### Step 1: Navigate to Lesson
 ```bash
-cd lessons/01-blinky
+# Create a new binary project
+cargo new --name blinky blinky
+
+cd blinky
 ```
 
-### Step 2: Build
+### Step 2: Update `Cargo.toml`
+
+Replace the entire `Cargo.toml` with:
+
+```toml
+[package]
+name = "blinky"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+esp-hal = { version = "1.0.0", features = ["esp32c6"] }
+esp-backtrace = { version = "0.14", features = ["esp32c6", "panic-handler", "println"] }
+esp-println = { version = "0.13", features = ["esp32c6"] }
+log = { version = "0.4" }
+
+[[example]]
+name = "blinky"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+```
+
+### Step 3: Create `rust-toolchain.toml`
+
+In the project root, create `rust-toolchain.toml`:
+
+```toml
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["riscv32imac-unknown-none-elf"]
+```
+
+### Step 4: Write the Code
+
+Replace `src/main.rs` with the code in this lesson.
+
+### Step 5: Build
+
 ```bash
 cargo build --release
 ```
 
-**Expected output:**
-```
-   Compiling esp-hal v1.0.0
-   Compiling blinky v0.1.0
-    Finished release [optimized] target(s) in 8.2s
-```
+### Step 6: Flash to ESP32-C6
 
-### Step 3: Flash to ESP32-C6
 ```bash
 cargo run --release
 ```
 
-**Expected output:**
-```
-[INFO] Connecting...
-[INFO] Flashing has completed!
-```
+Or manually with espflash:
 
-### Step 4: Monitor Serial Output
 ```bash
-espflash monitor /dev/cu.usbserial-10
+espflash flash --port /dev/cu.usbserial-10 target/riscv32imac-unknown-none-elf/release/blinky
+```
+
+### Step 7: Monitor Serial Output
+
+```bash
+python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10
 ```
 
 **Expected output:**
 ```
-🚀 Starting Blinky (Lesson 01)
-✓ HAL initialized
-✓ GPIO8 configured as output
-💡 Entering blink loop...
+✓ Connected to /dev/cu.usbserial-10 at 115200 baud
+======================================================================
+🚀 Starting Lesson 01: Blinky
+✓ GPIO13 configured as output
+✓ GPIO9 configured as input
+Starting GPIO demonstration...
+
+--- GPIO Output Test ---
+Set GPIO13 HIGH
+  GPIO9 reads: HIGH
+Set GPIO13 LOW
+  GPIO9 reads: LOW
+
+--- Blinking Loop ---
+(Check GPIO9 input state as GPIO13 toggles)
+
+🔴 LED ON  → GPIO9: HIGH
+⚫ LED OFF → GPIO9: LOW
+🔴 LED ON  → GPIO9: HIGH
+⚫ LED OFF → GPIO9: LOW
+  └─ 10 cycles completed
+...
 ```
+
+---
+
+## 💡 Code Explanation
+
+### Pin Configuration (Top of File)
+
+```rust
+const LED_PIN: u8 = 13;        // GPIO13 - LED output
+const INPUT_PIN: u8 = 9;       // GPIO9 - Input (detects LED state)
+const BLINK_DELAY_MS: u32 = 500;
+```
+
+**Why constants?**
+- Easy to change pins in one place
+- Clear what each pin does
+- Good programming practice
+
+### GPIO Output
+
+```rust
+let mut led = Output::new(
+    peripherals.GPIO13,
+    Level::Low,
+    OutputConfig::default(),
+);
+```
+
+- `GPIO13` - The pin to control
+- `Level::Low` - Start with LED off
+- `OutputConfig::default()` - Standard mode
+
+### GPIO Input
+
+```rust
+let input = Input::new(peripherals.GPIO9, InputConfig::default());
+```
+
+- Reads the state without needing an external button
+- Perfect for learning - no hardware required!
+- Can detect changes made by GPIO13 output
+
+### Reading GPIO State
+
+```rust
+if input.is_high() { "HIGH" } else { "LOW" }
+```
+
+Simple way to read a digital input pin.
+
+---
+
+## 🔬 What This Demonstrates
+
+1. **GPIO Output** - Controlling a pin (blinking)
+2. **GPIO Input** - Reading a pin state
+3. **Logging** - Sending debug messages to serial
+4. **Timing** - Using delays for synchronization
+5. **State Detection** - Input reading the output's state
+
+**No external hardware needed!** GPIO9 reads GPIO13's state automatically.
 
 ---
 
 ## ✅ Expected Behavior
 
-When running correctly:
-- ✅ Onboard LED blinks every second
-- ✅ Serial output shows initialization messages
-- ✅ No errors or warnings
-- ✅ LED timing is consistent
+- ✅ Logs appear on serial monitor
+- ✅ GPIO13 switches HIGH/LOW every 500ms
+- ✅ GPIO9 correctly reflects GPIO13 state
+- ✅ Cycle counter increments every 10 cycles
+- ✅ No compile errors or panics
 
 ---
 
-## 🔍 Understanding the Code
-
-### Key Concepts
-
-**1. Hardware Abstraction Layer (HAL)**
-```rust
-let peripherals = esp_hal::init(esp_hal::Config::default());
-```
-- Gets safe access to all hardware
-- Prevents multiple parts of code from conflicting
-- Type-safe: can't use wrong pins by accident
-
-**2. GPIO Output**
-```rust
-let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
-```
-- `GPIO8` - specific pin (compile-time checked!)
-- `Level::Low` - start with LED off
-- `OutputConfig::default()` - standard push-pull mode
-
-**3. Delay**
-```rust
-delay.delay_millis(1000);
-```
-- Blocking delay (stops all code)
-- Good for simple cases like this
-- We'll learn async delays in Lesson 02
-
-**4. Infinite Loop**
-```rust
-loop { }  // Required! Embedded systems never exit
-```
-- Firmware runs forever
-- No operating system to return to
-- Must have infinite loop or function won't compile
-
----
-
-## 🎓 Best Practices Demonstrated
-
-### 1. **Comprehensive Logging**
-```rust
-info!("🚀 Starting Blinky");
-info!("✓ HAL initialized");
-```
-**Why**: Helps debug issues, provides feedback
-
-### 2. **Descriptive Names**
-```rust
-let mut led = Output::new(...);  // Clear what this is
-```
-**Why**: Code is self-documenting
-
-### 3. **Explicit Configuration**
-```rust
-Level::Low, OutputConfig::default()
-```
-**Why**: No magic numbers, clear intent
-
-### 4. **Step-by-Step Progression**
-```rust
-// Step 1: Init logging
-// Step 2: Init HAL
-// Step 3: Configure GPIO
-```
-**Why**: Easy to understand flow
-
----
-
-## 🧪 Experiments to Try
+## 🧪 Try This
 
 ### Easy
-1. Change delay time to 500ms (faster blink)
-2. Start with LED on (`Level::High`)
-3. Add more log messages
+1. Change `BLINK_DELAY_MS` to `250` for faster blinking
+2. Add a log message inside the loop showing the cycle number
 
 ### Medium
-4. Use `led.toggle()` instead of set_high/set_low
-5. Try GPIO9 instead of GPIO8
-6. Add a counter to count blinks
+3. Make GPIO13 blink 5 times, then stay off for 2 seconds
+4. Create a pattern (like SOS in morse code)
 
 ### Advanced
-7. Create a blink pattern (SOS in morse code!)
-8. Add error handling for missing GPIO
-9. Read button input (peek at Lesson 02)
+5. Read from GPIO9 and do something different based on state
+6. Add a third pin and have multiple outputs
 
 ---
 
 ## 🐛 Troubleshooting
 
-### LED doesn't blink
-- **Check GPIO pin**: Your board might use different pin
-- **Check wiring**: LED connected correctly?
-- **Check power**: USB cable providing power?
-
-### Build fails
-```bash
-# Ensure target is installed
-rustup target add riscv32imac-unknown-none-elf
-
-# Clean and rebuild
-cargo clean
-cargo build --release
-```
-
-### Flash fails
-```bash
-# Check port exists
-ls /dev/cu.*
-
-# Try different port
-espflash flash ... --port /dev/cu.usbserial-XX
-```
-
-### No serial output
-```bash
-# Check ESP_LOG_LEVEL
-export ESP_LOG_LEVEL=INFO
-
-# Try different baud rate
-espflash monitor --speed 115200
-```
+| Problem | Solution |
+|---------|----------|
+| Build fails | Run `rustup target add riscv32imac-unknown-none-elf` |
+| Can't flash | Check port: `ls /dev/cu.* \| grep serial` |
+| No serial output | Try `python3 scripts/monitor.py --port /dev/cu.usbserial-10` |
+| Port in use | Check: `lsof /dev/cu.usbserial-10` and kill the process |
+| LED doesn't blink | Verify wiring to GPIO13, check power |
 
 ---
 
-## 📊 Code Metrics
+## 📚 Next Steps
 
-| Metric | Value |
-|--------|-------|
-| Lines of code | ~30 |
-| Binary size | 34 KB |
-| RAM usage | Minimal (~1KB) |
-| Dependencies | 3 crates |
-| Build time | ~8 seconds |
+- **Lesson 02:** Button input and state changes
+- **Lesson 03:** Multiple GPIO pins (traffic light)
+- **Lesson 04:** Async/await with Embassy
 
 ---
 
-## 🎯 Next Steps
+## 🎯 Key Takeaways
 
-### Completed ✅
-- [x] Build and flash firmware
-- [x] Understand esp-hal 1.0.0 basics
-- [x] Configure GPIO output
-- [x] Use blocking delays
-
-### Continue Learning 🚀
-- [ ] **Lesson 02**: Embassy async (non-blocking delays)
-- [ ] **Lesson 03**: Button input + interrupts
-- [ ] **Lesson 04**: State machines with enums
+1. GPIO output controls pins (HIGH/LOW)
+2. GPIO input reads pin states
+3. Logging helps you understand what's happening
+4. Simple constants make code maintainable
+5. You don't need external hardware to test GPIO!
 
 ---
 
-## 💡 Key Takeaways
-
-1. **esp-hal 1.0.0 is simple**: ~30 lines for blinking LED
-2. **Pure Rust**: No C code, no ESP-IDF needed
-3. **Type-safe**: Compiler catches pin mistakes
-4. **Modern patterns**: This is the 2024+ way
-5. **Logging is essential**: Always log your initialization
-
----
-
-## 📚 Additional Resources
-
-- [esp-hal Documentation](https://docs.esp-rs.org/esp-hal/)
-- [ESP32-C6 Datasheet](https://www.espressif.com/sites/default/files/documentation/esp32-c6_datasheet_en.pdf)
-- [Rust Embedded Book](https://rust-embedded.github.io/book/)
-- [Repository README](../../README.md)
-
----
-
-## ✨ LLM-Friendly Notes
-
-**For Claude Code / AI Assistants:**
-
-This lesson demonstrates the **minimal pattern** for ESP32-C6 firmware:
-1. Standard attributes: `#![no_std]`, `#![no_main]`
-2. Essential imports: backtrace, hal, logging
-3. Init sequence: logger → hal → peripherals → loop
-4. GPIO pattern: `Output::new(pin, level, config)`
-5. Delay pattern: `Delay::new()` then `delay_millis()`
-
-**Replication Template:**
-```rust
-// Standard boilerplate
-#![no_std]
-#![no_main]
-use esp_backtrace as _;
-use esp_hal::{...};
-esp_bootloader_esp_idf::esp_app_desc!();
-
-#[main]
-fn main() -> ! {
-    // Init
-    esp_println::logger::init_logger_from_env();
-    let peripherals = esp_hal::init(esp_hal::Config::default());
-
-    // Your code here
-
-    loop {
-        // Main logic
-    }
-}
-```
-
-**Key Patterns to Preserve:**
-- Logging at each initialization step
-- Descriptive variable names
-- Comments explaining "why" not just "what"
-- Type-safe peripheral access
-- No unwrap() unless absolutely necessary
-
----
-
-*Lesson 01 Complete! Ready for Lesson 02? 🚀*
+*That's it! You've just built your first ESP32-C6 firmware from scratch.* 🚀
