@@ -43,26 +43,37 @@ cd blinky
 Replace the entire `Cargo.toml` with:
 
 ```toml
+# Project metadata
 [package]
-name = "blinky"
-version = "0.1.0"
-edition = "2021"
-resolver = "2"
+name = "blinky"                    # Project name (matches folder)
+version = "0.1.0"                  # Semantic versioning
+edition = "2021"                   # Rust language edition (current stable)
+resolver = "2"                     # Dependency resolver (required for embedded)
 
+# External libraries we depend on
 [dependencies]
+# Hardware abstraction layer - controls ESP32-C6 peripherals
 esp-hal = { version = "1.0.0", features = ["esp32c6"] }
+
+# Panic handler - prints crash info when code panics
 esp-backtrace = { version = "0.14", features = ["esp32c6", "panic-handler", "println"] }
+
+# Serial printing - needed for logging to console
 esp-println = { version = "0.13", features = ["esp32c6"] }
+
+# Standard logging framework - provides info!, debug!, warn! macros
 log = { version = "0.4" }
 
+# Mark src/main.rs as an executable example
 [[example]]
-name = "blinky"
-path = "src/main.rs"
+name = "blinky"                    # Name of this example
+path = "src/main.rs"               # Path to the code
 
+# Optimize release builds for small size (important for embedded!)
 [profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
+opt-level = "z"                    # Optimize for size (not speed)
+lto = true                         # Link-time optimization (reduces size even more)
+codegen-units = 1                  # Single compilation unit (slower build, smaller binary)
 ```
 
 #### Understanding Cargo.toml
@@ -97,21 +108,16 @@ codegen-units = 1
 Create a `.cargo` directory, then create `config.toml` inside it:
 
 ```toml
+# Set the default build target (so we don't type --target every time)
 [build]
-target = "riscv32imac-unknown-none-elf"
+target = "riscv32imac-unknown-none-elf"    # RISC-V 32-bit for ESP32-C6
 
+# Custom cargo shortcuts for faster ESP32 development
 [alias]
-# Build release binary
-br = "build --release"
-
-# Check code without building (fast syntax check)
-ck = "check"
-
-# Build and flash to ESP32-C6
-ff = "run --release"
-
-# Just build, then show size
-sz = "build --release"
+br = "build --release"                      # br = build release
+ck = "check"                                # ck = check (syntax only, fast)
+ff = "run --release"                        # ff = flash firmware (build + flash)
+sz = "build --release"                      # sz = size (build for analysis)
 ```
 
 #### Understanding .cargo/config.toml
