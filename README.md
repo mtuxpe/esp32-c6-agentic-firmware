@@ -136,7 +136,7 @@ fn main() -> ! {
 
 - **[QUICKSTART.md](./QUICKSTART.md)** - Build and flash guide
 - **[esp-hal 1.0.0 Docs](https://docs.esp-rs.org/esp-hal/)** - Official HAL docs
-- **[Examples](./submodules/esp-hal/examples/)** - Reference implementations
+- **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Reference implementations
 - **[Rust ESP Book](https://docs.esp-rs.org/book/)** - Comprehensive guide
 
 ## 🎓 Learning Resources

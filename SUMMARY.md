@@ -2,7 +2,7 @@
 ## ESP32-C6 Agentic Firmware Development
 
 **Last Updated**: 2025-11-09
-**Status**: ✅ Lesson 01 Complete, Ready for Production
+**Status**: ✅ Lesson 01 Complete, Clean, and Ready for Production
 
 ---
 
@@ -27,11 +27,21 @@ Demonstrate **modern embedded Rust development** using:
 ### Lesson 01: Blinky
 - ✅ Builds with `cargo build --release`
 - ✅ Flashes to hardware
-- ✅ Pure Rust (20 lines)
+- ✅ Pure Rust (~80 lines with comprehensive comments)
 - ✅ No ESP-IDF required
 - ✅ Uses esp-hal 1.0.0 patterns
+- ✅ Comprehensive inline documentation
+- ✅ LLM-friendly replication templates
+- ✅ Clean, minimal structure
 
 **Binary Size**: 1.0M total (34KB app)
+
+### Recent Cleanup (2025-11-09)
+- ✅ Removed unnecessary esp-hal git submodule
+- ✅ Updated all documentation references
+- ✅ Added extensive inline code comments
+- ✅ Created LLM-friendly notes section
+- ✅ Simplified project structure
 
 ---
 

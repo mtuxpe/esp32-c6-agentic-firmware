@@ -92,7 +92,7 @@ When flashed, the firmware should:
 
 - **GitHub Repo**: https://github.com/shanemmattner/esp32-c6-agentic-firmware
 - **esp-hal Docs**: https://docs.esp-rs.org/esp-hal/
-- **esp-hal Examples**: Check `submodules/esp-hal/examples/`
+- **esp-hal Examples**: https://github.com/esp-rs/esp-hal/tree/main/examples
 - **Rust ESP Book**: https://docs.esp-rs.org/book/
 
 ---
