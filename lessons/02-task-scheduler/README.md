@@ -55,34 +55,121 @@ Scheduler Loop
 
 ---
 
+## Project Structure
+
+The code is organized into modules for maintainability and reusability:
+
+```
+lessons/02-task-scheduler/
+├── src/
+│   ├── lib.rs              # Library root: constants, atomics, module declarations
+│   ├── scheduler.rs        # Scheduler implementation
+│   ├── button.rs          # Button task and logic
+│   ├── neopixel.rs        # NeoPixel/LED task and logic
+│   └── bin/
+│       └── main.rs        # Main entry point
+├── Cargo.toml
+└── README.md
+```
+
+### Module Breakdown
+
+**`lib.rs`** - Configuration and shared state
+- Hardware pin definitions (`BUTTON_GPIO = 9`, `NEOPIXEL_GPIO = 8`)
+- Timing constants (`BUTTON_PERIOD_MS`, `LED_PERIOD_MS`, `TICK_MS`)
+- LED color constants (`LED_COLOR_ON`, `LED_COLOR_OFF`)
+- Atomic shared state (`LED_ENABLED: AtomicBool`)
+- Helper functions (`is_led_enabled()`, `set_led_enabled()`, `toggle_led_enabled()`)
+
+**`scheduler.rs`** - Cooperative scheduler
+- `Scheduler` struct tracking virtual time and task intervals
+- `tick()` method running tasks at their configured periods
+
+**`button.rs`** - Button input handling
+- `button_task()` - Reads GPIO, detects press edges, toggles LED state
+
+**`neopixel.rs`** - NeoPixel output
+- `led_task()` - Reads LED state from atomic, updates NeoPixel color
+
+**`main.rs`** - Application entry point
+- Peripheral initialization
+- Creates scheduler instance
+- Main loop calling `scheduler.tick()`
+
+### Benefits of This Structure
+
+✅ **Modularity** - Each module has a single responsibility
+✅ **Testability** - Tasks can be tested independently
+✅ **Reusability** - Modules can be reused in other lessons
+✅ **Scalability** - Easy to add new tasks and modules
+✅ **Constants in one place** - Hardware config centralized in `lib.rs`
+
+---
+
 ## Code Walkthrough
 
-### 1. Atomic Shared State
+### 1. Configuration Constants (lib.rs)
+
+All hardware and timing configuration is centralized in `lib.rs`:
+
+```rust
+// Hardware pins
+pub const BUTTON_GPIO: u8 = 9;
+pub const NEOPIXEL_GPIO: u8 = 8;
+pub const RMT_CLOCK_MHZ: u32 = 80;
+
+// Task timing
+pub const BUTTON_PERIOD_MS: u64 = 10;   // Check button every 10ms
+pub const LED_PERIOD_MS: u64 = 50;      // Update LED every 50ms
+pub const TICK_MS: u64 = 10;            // Scheduler tick
+pub const DEBOUNCE_MS: u32 = 200;       // Debounce delay
+
+// LED colors
+pub const LED_COLOR_ON: (u8, u8, u8) = (0, 0, 30);   // Dim blue
+pub const LED_COLOR_OFF: (u8, u8, u8) = (0, 0, 0);   // Off
+```
+
+**Why constants?** Centralizing configuration makes it easy to:
+- Change pin assignments without touching task code
+- Tune timing parameters in one place
+- Adjust LED colors without rebuilding modules
+
+### 2. Atomic Shared State (lib.rs)
 
 ```rust
 use core::sync::atomic::{AtomicBool, Ordering};
 
 /// LED state shared between button_task and led_task
-static LED_ENABLED: AtomicBool = AtomicBool::new(false);
+pub static LED_ENABLED: AtomicBool = AtomicBool::new(false);
+
+// Helper functions for cleaner atomic access
+pub fn is_led_enabled() -> bool {
+    LED_ENABLED.load(Ordering::Relaxed)
+}
+
+pub fn toggle_led_enabled() {
+    let current = LED_ENABLED.load(Ordering::Relaxed);
+    LED_ENABLED.store(!current, Ordering::Relaxed);
+}
 ```
 
-**Why atomics?** We need to safely share state between two tasks without locks. Atomic operations are:
-- Lock-free (no mutexes)
-- Fast (single CPU instruction on most platforms)
-- Safe (Rust prevents data races at compile time)
+**Why atomics?** Lock-free shared state perfect for embedded:
+- No mutexes needed (no `std::sync`)
+- Fast (single CPU instruction)
+- Safe (Rust compiler prevents data races)
 
-### 2. Button Task
+### 3. Button Task (button.rs)
 
 ```rust
-fn button_task(button: &Input, delay: &Delay) {
+pub fn button_task(button: &Input, delay: &Delay) {
     static mut BUTTON_WAS_PRESSED: bool = false;
     let button_pressed = button.is_low();
 
     unsafe {
         if button_pressed && !BUTTON_WAS_PRESSED {
             info!("Button press detected!");
-            let current = LED_ENABLED.load(Ordering::Relaxed);
-            LED_ENABLED.store(!current, Ordering::Relaxed);
+            toggle_led_enabled();  // Use helper function
+            delay.delay_millis(DEBOUNCE_MS);  // Use constant
         }
         BUTTON_WAS_PRESSED = button_pressed;
     }
@@ -90,67 +177,86 @@ fn button_task(button: &Input, delay: &Delay) {
 ```
 
 **What's happening:**
-1. Store previous button state in static variable
-2. Detect press as edge (LOW && was HIGH)
-3. Read current LED state with atomic `load()`
-4. Toggle and store new state with atomic `store()`
-5. Runs every 10ms
+1. Detect press as edge (LOW && was HIGH)
+2. Call `toggle_led_enabled()` helper function
+3. Debounce using `DEBOUNCE_MS` constant
+4. Update previous state for next iteration
 
-**Why `Ordering::Relaxed`?** Single-threaded firmware has no race conditions - relaxed is fastest.
-
-### 3. LED Task
+### 4. LED Task (neopixel.rs)
 
 ```rust
-fn led_task(led: &mut SmartLedsAdapter<..>) {
-    let should_be_on = LED_ENABLED.load(Ordering::Relaxed);
+pub fn led_task<'a>(led: &mut SmartLedsAdapter<...>) {
+    let should_be_on = is_led_enabled();  // Use helper function
 
     if should_be_on {
-        let _ = led.write([RGB8::new(0, 0, 30)].into_iter());
+        let (r, g, b) = LED_COLOR_ON;  // Use constant
+        let _ = led.write([RGB8::new(r, g, b)].into_iter());
         info!("LED ON");
     } else {
-        let _ = led.write([RGB8::new(0, 0, 0)].into_iter());
+        let (r, g, b) = LED_COLOR_OFF;  // Use constant
+        let _ = led.write([RGB8::new(r, g, b)].into_iter());
         info!("LED OFF");
     }
 }
 ```
 
 **What's happening:**
-1. Read LED_ENABLED atomic state
-2. Update NeoPixel based on state
-3. Runs every 50ms
+1. Read LED state using `is_led_enabled()` helper
+2. Use color constants from `lib.rs`
+3. Update NeoPixel accordingly
 
-### 4. Scheduler Loop
+### 5. Scheduler (scheduler.rs)
 
 ```rust
-let mut button_next_run_ms: u64 = 0;
-let mut led_next_run_ms: u64 = 0;
-let mut current_time_ms: u64 = 0;
+pub struct Scheduler {
+    current_time_ms: u64,
+    button_next_run_ms: u64,
+    led_next_run_ms: u64,
+}
 
-const BUTTON_PERIOD_MS: u64 = 10;
-const LED_PERIOD_MS: u64 = 50;
-const TICK_MS: u64 = 10;
+impl Scheduler {
+    pub fn tick<F1, F2>(&mut self, delay: &Delay, mut button_task: F1, mut led_task: F2)
+    where
+        F1: FnMut(),
+        F2: FnMut(),
+    {
+        self.current_time_ms += TICK_MS;
+        delay.delay_millis(TICK_MS as u32);
 
-loop {
-    current_time_ms += TICK_MS;
-    delay.delay_millis(TICK_MS as u32);
+        if self.current_time_ms >= self.button_next_run_ms {
+            button_task();
+            self.button_next_run_ms = self.current_time_ms + BUTTON_PERIOD_MS;
+        }
 
-    if current_time_ms >= button_next_run_ms {
-        button_task(&button, &delay);
-        button_next_run_ms = current_time_ms + BUTTON_PERIOD_MS;
-    }
-
-    if current_time_ms >= led_next_run_ms {
-        led_task(&mut led);
-        led_next_run_ms = current_time_ms + LED_PERIOD_MS;
+        if self.current_time_ms >= self.led_next_run_ms {
+            led_task();
+            self.led_next_run_ms = self.current_time_ms + LED_PERIOD_MS;
+        }
     }
 }
 ```
 
 **How it works:**
-1. Advance virtual time by TICK_MS (10ms per loop)
-2. Run button_task if it's due (every 10ms = every loop)
-3. Run led_task if it's due (every 50ms = every 5 loops)
-4. Simple cooperative scheduler - no interrupts needed
+1. Advance virtual time by `TICK_MS`
+2. Run tasks when their period elapses
+3. Uses `FnMut` closures to allow mutable borrows (needed for LED driver)
+4. Timing constants imported from `lib.rs`
+
+### 6. Main Loop (main.rs)
+
+```rust
+let mut scheduler = Scheduler::new();
+
+loop {
+    scheduler.tick(
+        &delay,
+        || button::button_task(&button, &delay),
+        || neopixel::led_task(&mut led),
+    );
+}
+```
+
+**Clean and simple** - just pass closures to the scheduler!
 
 ---
 
