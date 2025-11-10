@@ -120,31 +120,6 @@ ff = "run --release"                        # ff = flash firmware (build + flash
 sz = "build --release"                      # sz = size (build for analysis)
 ```
 
-#### Understanding .cargo/config.toml
-
-This file configures cargo for your ESP32 project.
-
-**[build] Section** - Build configuration
-- `target = "riscv32imac-unknown-none-elf"` - Default CPU architecture
-  - RISC-V instruction set
-  - 32-bit, with multiply/divide/atomics/compressed
-  - `elf` = bare-metal (no operating system)
-  - **Why**: Saves typing `--target` every build
-
-**[alias] Section** - Custom cargo shortcuts
-
-| Alias | Full Command | Use Case |
-|-------|--------------|----------|
-| `cargo br` | `build --release` | Quick release build |
-| `cargo ck` | `check` | Fast syntax check (no build) |
-| `cargo ff` | `run --release` | Build + flash to board |
-| `cargo sz` | `build --release` | Build for size inspection |
-
-**Why custom aliases?**
-- Less typing = faster iteration
-- Consistent commands across team
-- Easy to remember (br = build release, ff = flash firmware)
-
 ### Step 4: Write the Code
 
 Replace `src/main.rs` with the code in this lesson.
@@ -152,23 +127,14 @@ Replace `src/main.rs` with the code in this lesson.
 ### Step 5: Build
 
 ```bash
-# Using the alias we created
 cargo br
 ```
-
-This builds an optimized release binary.
 
 ### Step 6: Flash to ESP32-C6
 
 ```bash
-# Using the alias we created (builds and flashes)
 cargo ff
 ```
-
-This will:
-1. Build the release binary
-2. Flash it to the ESP32-C6 on `/dev/cu.usbserial-10`
-3. Start the serial monitor automatically
 
 ### Step 7: Monitor Serial Output
 
