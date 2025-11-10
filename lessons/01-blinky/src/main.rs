@@ -5,7 +5,8 @@
 //!
 //! ## Hardware
 //! - ESP32-C6 development board
-//! - Onboard LED on GPIO8
+//! - External LED on GPIO13
+//! - Input detector on GPIO9 (optional: connect to GPIO13 to verify toggling)
 //!
 //! ## What You'll Learn
 //! - Basic esp-hal 1.0.0 initialization
@@ -23,7 +24,7 @@
 use esp_backtrace as _;  // Panic handler - prints backtrace on crash
 use esp_hal::{
     delay::Delay,                           // Blocking delay provider
-    gpio::{Level, Output, OutputConfig},    // GPIO types
+    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},    // GPIO types
     main,                                    // Entry point macro
 };
 use log::info;  // Logging macros
@@ -51,29 +52,48 @@ fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
     info!("✓ HAL initialized");
 
-    // Step 3: Configure GPIO8 as an output
-    // - peripherals.GPIO8: The specific pin we want to use
+    // Step 3: Configure GPIO13 as an output
+    // - peripherals.GPIO13: The specific pin we want to use
     // - Level::Low: Start with LED off
     // - OutputConfig::default(): Standard push-pull output
     let mut led = Output::new(
-        peripherals.GPIO8,
+        peripherals.GPIO13,
         Level::Low,
         OutputConfig::default()
     );
-    info!("✓ GPIO8 configured as output");
+    info!("✓ GPIO13 configured as output");
 
-    // Step 4: Create a delay provider
+    // Step 4: Configure GPIO9 as an input
+    // - peripherals.GPIO9: The pin we want to read
+    // - Pull::Up: Enable internal pull-up resistor
+    // This pin can be used to detect toggling (e.g., connect to GPIO13 to verify output)
+    let input = Input::new(peripherals.GPIO9, InputConfig::default());
+    info!("✓ GPIO9 configured as input");
+
+    // Step 5: Create a delay provider
     // Used for blocking delays (simple but blocks other code)
     let delay = Delay::new();
 
-    // Step 5: Main loop - blink forever!
+    // Step 6: Main loop - blink forever!
     info!("💡 Entering blink loop...");
+    let mut count = 0;
     loop {
         led.set_high();              // Turn LED ON
-        delay.delay_millis(1000);    // Wait 1 second
+        info!("🔴 LED ON  | GPIO9 input: {}", if input.is_high() { "HIGH" } else { "LOW " });
+        delay.delay_millis(500);
+        count += 1;
+        info!("    ..continuing ON | GPIO9: {}", if input.is_high() { "HIGH" } else { "LOW " });
+        delay.delay_millis(500);
 
         led.set_low();               // Turn LED OFF
-        delay.delay_millis(1000);    // Wait 1 second
+        info!("⚫ LED OFF | GPIO9 input: {}", if input.is_high() { "HIGH" } else { "LOW " });
+        delay.delay_millis(500);
+        info!("    ..continuing OFF | GPIO9: {}", if input.is_high() { "HIGH" } else { "LOW " });
+        delay.delay_millis(500);
+
+        if count % 10 == 0 {
+            info!("━━━━━━━━━━━━━━ Cycle #{} ━━━━━━━━━━━━━━", count / 2);
+        }
     }
 
     // Note: We never reach here because of the infinite loop
