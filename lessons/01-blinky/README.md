@@ -21,6 +21,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Add RISC-V target
 rustup target add riscv32imac-unknown-none-elf
 
+# Install esp-generate (template generator)
+cargo install esp-generate --locked
+
 # Install flashing tool
 cargo install espflash
 ```
@@ -29,100 +32,57 @@ cargo install espflash
 
 ## 🚀 Creating Your First Embedded Rust Project
 
-### Step 1: Create a New Project
+### Step 1: Generate Project with esp-generate
 
 ```bash
-# Create a new binary project
-cargo new --name blinky blinky
-
-cd blinky
+# Generate a new project for ESP32-C6
+esp-generate --chip esp32c6 my-project
+cd my-project
 ```
 
-### Step 2: Update `Cargo.toml`
+This creates a properly configured project with:
+- Correct `.cargo/config.toml` setup
+- `build.rs` for linker configuration
+- `rust-toolchain.toml` with correct Rust version
+- All necessary dependencies
 
-Replace the entire `Cargo.toml` with:
+### Step 2: Update Dependencies (Optional)
+
+The generated `Cargo.toml` includes esp-hal. For this lesson, we'll also add logging:
 
 ```toml
-# Project metadata
-[package]
-name = "blinky"                    # Project name (matches folder)
-version = "0.1.0"                  # Semantic versioning
-edition = "2021"                   # Rust language edition (current stable)
-resolver = "2"                     # Dependency resolver (required for embedded)
-
-# External libraries we depend on
 [dependencies]
-# Hardware abstraction layer - controls ESP32-C6 peripherals
-esp-hal = { version = "1.0.0", features = ["esp32c6"] }
-
-# Panic handler - prints crash info when code panics
-esp-backtrace = { version = "0.14", features = ["esp32c6", "panic-handler", "println"] }
-
-# Serial printing - needed for logging to console
-esp-println = { version = "0.13", features = ["esp32c6"] }
-
-# Standard logging framework - provides info!, debug!, warn! macros
+esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
+esp-backtrace = { version = "0.15", features = ["esp32c6", "panic-handler", "println"] }
+esp-println = { version = "0.13", features = ["esp32c6", "log"] }
 log = { version = "0.4" }
-
-# Mark src/main.rs as an executable example
-[[example]]
-name = "blinky"                    # Name of this example
-path = "src/main.rs"               # Path to the code
-
-# Optimize release builds for small size (important for embedded!)
-[profile.release]
-opt-level = "z"                    # Optimize for size (not speed)
-lto = true                         # Link-time optimization (reduces size even more)
-codegen-units = 1                  # Single compilation unit (slower build, smaller binary)
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
+critical-section = "1.2.0"
 ```
 
-#### Understanding Cargo.toml
+**Key Features Explained:**
+- `esp-hal` - Hardware abstraction layer with `unstable` for advanced drivers
+- `esp-backtrace` - Panic handler with println support for debugging
+- `esp-println` - Serial printing with `log` feature for structured logging
+- `log` - Standard Rust logging framework for info!, debug!, warn! macros
+- `esp-bootloader-esp-idf` - App descriptor required by ESP bootloader
+- `critical-section` - Safe concurrent access to shared resources
 
-**[package] Section** - Describes your project
-- `name = "blinky"` - Your project name (must match folder)
-- `version = "0.1.0"` - Semantic versioning
-- `edition = "2021"` - Rust language edition (current stable)
-- `resolver = "2"` - Dependency resolver version (required for embedded)
+### Step 3: Update `.cargo/config.toml`
 
-**[dependencies] Section** - External crates your project needs
-- `esp-hal` - Hardware abstraction layer for ESP chips
-  - `version = "1.0.0"` - Use exactly version 1.0.0
-  - `features = ["esp32c6"]` - Enable ESP32-C6 chip support
-- `esp-backtrace` - Prints crash information (debugging)
-  - `features = ["esp32c6", "panic-handler", "println"]` - Enable printing panics
-- `esp-println` - Serial printing (for logging)
-  - `features = ["esp32c6"]` - Enable for ESP32-C6
-- `log` - Logging framework (standard Rust logging)
-
-**[[example]] Section** - Marks src/main.rs as an example
-- Tells Cargo this is an executable example
-- `path = "src/main.rs"` - Where your code lives
-
-**[profile.release] Section** - Optimization settings for release builds
-- `opt-level = "z"` - Optimize for small binary size
-- `lto = true` - Link-time optimization (reduces size more)
-- `codegen-units = 1` - Single compilation unit (better optimization)
-
-### Step 3: Create `.cargo/config.toml`
-
-Create a `.cargo` directory, then create `config.toml` inside it:
+Add custom cargo aliases for faster development:
 
 ```toml
-# Set the default build target (so we don't type --target every time)
-[build]
-target = "riscv32imac-unknown-none-elf"    # RISC-V 32-bit for ESP32-C6
-
-# Custom cargo shortcuts for faster ESP32 development
 [alias]
-br = "build --release"                      # br = build release
-ck = "check"                                # ck = check (syntax only, fast)
-ff = "run --release"                        # ff = flash firmware (build + flash)
-sz = "build --release"                      # sz = size (build for analysis)
+br = "build --release"        # br = build release
+ck = "check"                  # ck = check (syntax only, fast)
+ff = "run --release"          # ff = flash firmware (build + flash)
+sz = "build --release"        # sz = size (build for analysis)
 ```
 
 ### Step 4: Write the Code
 
-Replace `src/main.rs` with the code in this lesson.
+Replace `src/bin/main.rs` with the Blinky + GPIO input code from this lesson.
 
 ### Step 5: Build
 
@@ -139,7 +99,7 @@ cargo ff
 ### Step 7: Monitor Serial Output
 
 ```bash
-python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10
+python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
 ```
 
 **Expected output:**
@@ -165,7 +125,6 @@ Set GPIO13 LOW
 🔴 LED ON  → GPIO9: HIGH
 ⚫ LED OFF → GPIO9: LOW
   └─ 10 cycles completed
-...
 ```
 
 ---
@@ -261,7 +220,7 @@ Simple way to read a digital input pin.
 
 | Problem | Solution |
 |---------|----------|
-| Build fails | Run `rustup target add riscv32imac-unknown-none-elf` |
+| Build fails | Make sure you ran `esp-generate --chip esp32c6` |
 | Can't flash | Check port: `ls /dev/cu.* \| grep serial` |
 | No serial output | Try `python3 scripts/monitor.py --port /dev/cu.usbserial-10` |
 | Port in use | Check: `lsof /dev/cu.usbserial-10` and kill the process |
@@ -279,11 +238,12 @@ Simple way to read a digital input pin.
 
 ## 🎯 Key Takeaways
 
-1. GPIO output controls pins (HIGH/LOW)
-2. GPIO input reads pin states
-3. Logging helps you understand what's happening
-4. Simple constants make code maintainable
-5. You don't need external hardware to test GPIO!
+1. `esp-generate` creates a properly configured Rust project
+2. GPIO output controls pins (HIGH/LOW)
+3. GPIO input reads pin states
+4. Logging helps you understand what's happening
+5. Cargo aliases speed up development workflow
+6. You don't need external hardware to test GPIO!
 
 ---
 
