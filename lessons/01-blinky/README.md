@@ -30,17 +30,99 @@ GPIO9   -->  Input (reads GPIO13 state for testing)
 ## What You'll Learn
 
 This lesson demonstrates:
+- Creating an ESP32-C6 project with `esp-generate`
 - GPIO output control (HIGH/LOW)
 - GPIO input reading
 - Structured logging with `info!()` macro
 - Basic timing with `Delay`
 - State detection between pins
 
-## Build & Flash
+## Prerequisites
+
+### Software Installation
 
 ```bash
-cd lessons/01-blinky
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
+# Add RISC-V target for ESP32-C6
+rustup target add riscv32imac-unknown-none-elf
+
+# Install esp-generate (project template generator)
+cargo install esp-generate --locked
+
+# Install espflash (flashing tool)
+cargo install espflash --locked
+```
+
+## Creating Your First ESP32-C6 Project
+
+### Step 1: Generate Project with esp-generate
+
+```bash
+# Generate a new ESP32-C6 project
+esp-generate --chip esp32c6 lesson-01-blinky
+
+cd lesson-01-blinky
+```
+
+This creates a properly configured project with:
+- Correct `.cargo/config.toml` with espflash runner
+- `build.rs` for linker configuration
+- `rust-toolchain.toml` with correct Rust version
+- `Cargo.toml` with base dependencies
+- Skeleton `src/main.rs`
+
+### Step 2: Update Cargo.toml
+
+Replace the `[dependencies]` section with:
+
+```toml
+[dependencies]
+# Hardware abstraction layer
+esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
+
+# Panic handler with backtrace
+esp-backtrace = { version = "0.15", features = ["esp32c6", "panic-handler", "println"] }
+
+# Serial printing and logging
+esp-println = { version = "0.13", features = ["esp32c6", "log"] }
+log = "0.4"
+
+# Bootloader app descriptor
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
+
+# Critical sections
+critical-section = "1.2.0"
+```
+
+**Key dependencies explained**:
+- `esp-hal` - Hardware abstraction layer with `unstable` for latest features
+- `esp-backtrace` - Panic handler with println support for debugging
+- `esp-println` - Serial printing with `log` integration
+- `log` - Standard Rust logging framework (info!, debug!, warn! macros)
+- `esp-bootloader-esp-idf` - Required by ESP bootloader
+- `critical-section` - Safe concurrent access to shared resources
+
+### Step 3: Add Cargo Aliases (Optional but Recommended)
+
+Add to `.cargo/config.toml`:
+
+```toml
+[alias]
+br = "build --release"        # br = build release (fast shortcut)
+ck = "check"                  # ck = check syntax only (very fast)
+ff = "run --release"          # ff = flash firmware (build + flash)
+```
+
+### Step 4: Write the Code
+
+Replace `src/main.rs` with the Blinky code (see this lesson's `src/main.rs`).
+
+### Step 5: Build & Flash
+
+```bash
 # Build
 cargo build --release
 
