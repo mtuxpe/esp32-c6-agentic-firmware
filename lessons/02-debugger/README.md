@@ -33,24 +33,23 @@ cargo install esp-generate --locked
 
 ## 🚀 Running This Lesson
 
-### Step 1: Build the Project
+### Step 1: Flash to ESP32-C6
 ```bash
 cd lessons/02-debugger
-cargo build --release
-```
-
-### Step 2: Flash to ESP32-C6
-```bash
-cargo run --release
-# Or use cargo alias:
 cargo ff
 ```
 
-The firmware builds and flashes successfully. You should see serial output on your terminal.
+The firmware builds and flashes. The terminal will show completion and return to the prompt.
 
-### Step 3: Monitor Serial Output
+### Step 2: Monitor Serial Output in Another Terminal
 
-The espflash tool will automatically show serial output. You'll see:
+In a **new terminal window**:
+
+```bash
+python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
+```
+
+The firmware is already running on the board. You'll see serial output:
 ```
 🚀 Starting Lesson 02: Debugger with probe-rs
 📍 Set breakpoints below to inspect GPIO state
@@ -252,15 +251,74 @@ We'll explore advanced JTAG debugging in later lessons if you have the hardware 
 
 ---
 
+## 🔍 Using Breakpoint Comments for Debugging
+
+The code includes breakpoint markers as **comments** at key locations:
+
+```rust
+led.set_high();  // 📍 BREAKPOINT #1: Inspect GPIO registers after this
+info!("🔴 LED ON  → GPIO9: {}", if input.is_high() { "HIGH" } else { "LOW" });
+delay.delay_millis(BLINK_DELAY_MS);
+
+led.set_low();   // 📍 BREAKPOINT #2: Inspect GPIO registers after this
+info!("⚫ LED OFF → GPIO9: {}", if input.is_high() { "HIGH" } else { "LOW" });
+delay.delay_millis(BLINK_DELAY_MS);
+
+cycle += 1;  // 📍 BREAKPOINT #3: Watch this variable change
+```
+
+**How to use these breakpoints:**
+
+1. **Add logging at each breakpoint** - Modify the code to print variable values:
+   ```rust
+   led.set_high();  // 📍 BREAKPOINT #1
+   info!("After set_high: cycle={}, GPIO9={}", cycle, if input.is_high() { "HIGH" } else { "LOW" });
+   ```
+
+2. **Watch the logs** - When you see the log output, you know:
+   - The code reached that line
+   - The variable had that value at that moment
+   - Execution continued (if next log appears)
+
+3. **Modify and test** - Change logging to track different variables:
+   ```rust
+   info!("GPIO13 state: {}", if led.is_set_high() { "HIGH" } else { "LOW" });
+   ```
+
+**This is how professional embedded developers debug!** Serial logging is more practical than hardware debuggers because:
+- Works everywhere (no special hardware needed)
+- Shows real execution flow with timestamps
+- Logs survive even after the program crashes
+- Easy to add/remove debugging without recompiling everything
+
+---
+
+## 🎓 Debugging Workflow
+
+### Traditional Approach (What We're NOT doing)
+```
+Code → Hardware Debugger → Pause at breakpoint → Inspect registers
+```
+**Problem:** Requires probe-rs CLI and compatible hardware
+
+### Practical Approach (What We're DOING)
+```
+Code + Logs → Serial Output → Analyze sequence → Understand flow
+```
+**Advantage:** Works immediately, always available
+
+---
+
 ## 🐛 Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
 | No serial output | Check USB cable, verify port: `ls /dev/cu.*` |
-| Logs not appearing | Rebuild with `cargo clean && cargo build --release` |
+| Logs not appearing | Check that monitor.py is connected and running |
 | Port in use | Kill other processes: `lsof /dev/cu.usbserial-10` |
 | Can't flash | Check USB connection, try unplugging and replugging |
-| LED doesn't blink | Verify GPIO13 is not configured elsewhere |
+| LED doesn't blink | Verify GPIO13 output and GPIO9 input connections |
+| `cargo ff` returns immediately | This is correct! Monitor is separate now. Use monitor.py in another terminal |
 
 ---
 

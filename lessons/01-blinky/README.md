@@ -17,12 +17,10 @@
 ```bash
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
 # Add RISC-V target
 rustup target add riscv32imac-unknown-none-elf
-
-# Install probe-rs for debugging support
-cargo install probe-rs --locked
 
 # Install esp-generate (template generator)
 cargo install esp-generate --locked
@@ -100,11 +98,22 @@ cargo br
 cargo ff
 ```
 
-### Step 7: Monitor Serial Output
+The firmware builds, flashes, and returns control to your terminal immediately (no blocking).
+
+### Step 7: Monitor Serial Output in Another Terminal
+
+In a **new terminal window**, run:
 
 ```bash
 python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
 ```
+
+**Note:** Replace `/dev/cu.usbserial-10` with your actual serial port. Find it with:
+```bash
+ls /dev/cu.*
+```
+
+This keeps the monitoring separate from flashing, giving you full control:
 
 **Expected output:**
 ```
@@ -224,12 +233,12 @@ Simple way to read a digital input pin.
 
 | Problem | Solution |
 |---------|----------|
-| Build fails | Make sure you ran `esp-generate --chip esp32c6 my-project -o probe-rs` |
-| Can't flash | Check port: `ls /dev/cu.* \| grep serial` |
-| No serial output | Try `python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10` |
+| Build fails | Make sure you're in the lesson directory: `cd lessons/01-blinky` |
+| Can't flash | Check USB connection and port: `ls /dev/cu.*` |
+| No serial output | Verify port is correct in monitor.py command |
 | Port in use | Check: `lsof /dev/cu.usbserial-10` and kill the process |
 | LED doesn't blink | Verify wiring to GPIO13, check power |
-| `probe-rs` not installed | Run `cargo install probe-rs --locked` |
+| `cargo ff` hangs | This is normal! Press CTRL+C when flash is done. Monitor is disabled. |
 
 ---
 
