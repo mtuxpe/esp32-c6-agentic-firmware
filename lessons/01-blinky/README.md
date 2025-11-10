@@ -65,6 +65,33 @@ lto = true
 codegen-units = 1
 ```
 
+#### Understanding Cargo.toml
+
+**[package] Section** - Describes your project
+- `name = "blinky"` - Your project name (must match folder)
+- `version = "0.1.0"` - Semantic versioning
+- `edition = "2021"` - Rust language edition (current stable)
+- `resolver = "2"` - Dependency resolver version (required for embedded)
+
+**[dependencies] Section** - External crates your project needs
+- `esp-hal` - Hardware abstraction layer for ESP chips
+  - `version = "1.0.0"` - Use exactly version 1.0.0
+  - `features = ["esp32c6"]` - Enable ESP32-C6 chip support
+- `esp-backtrace` - Prints crash information (debugging)
+  - `features = ["esp32c6", "panic-handler", "println"]` - Enable printing panics
+- `esp-println` - Serial printing (for logging)
+  - `features = ["esp32c6"]` - Enable for ESP32-C6
+- `log` - Logging framework (standard Rust logging)
+
+**[[example]] Section** - Marks src/main.rs as an example
+- Tells Cargo this is an executable example
+- `path = "src/main.rs"` - Where your code lives
+
+**[profile.release] Section** - Optimization settings for release builds
+- `opt-level = "z"` - Optimize for small binary size
+- `lto = true` - Link-time optimization (reduces size more)
+- `codegen-units = 1` - Single compilation unit (better optimization)
+
 ### Step 3: Create `rust-toolchain.toml`
 
 In the project root, create `rust-toolchain.toml`:
@@ -75,6 +102,26 @@ channel = "stable"
 components = ["rustfmt", "clippy"]
 targets = ["riscv32imac-unknown-none-elf"]
 ```
+
+#### Understanding rust-toolchain.toml
+
+This file tells Rust which version and components to use for this project.
+
+**[toolchain] Section** - Configure Rust toolchain
+- `channel = "stable"` - Use the stable release channel (not nightly)
+- `components = ["rustfmt", "clippy"]`
+  - `rustfmt` - Code formatter (keeps code style consistent)
+  - `clippy` - Linter (warns about code issues)
+- `targets = ["riscv32imac-unknown-none-elf"]`
+  - The CPU architecture for ESP32-C6
+  - RISC-V instruction set
+  - 32-bit, with multiply/divide/atomics/compressed
+  - `elf` = bare-metal (no operating system)
+
+**Why this file?**
+- Ensures everyone uses the same Rust version
+- Automatical downloads correct tools
+- Prevents "works on my machine" problems
 
 ### Step 4: Write the Code
 
