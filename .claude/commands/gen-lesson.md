@@ -263,16 +263,24 @@ const PIN_Y: u8 = {Y};
 
 ### Step 2.1: Create Directory Structure
 
-**Option A: Copy from previous lesson**:
+**Option A: Copy from previous lesson (Recommended)**:
 ```bash
 cp -r lessons/{previous-lesson}/ lessons/{XX-lesson-name}/
-# Update Cargo.toml name
-# Update main.rs lesson number and description
+# Then update:
+# - Cargo.toml package name
+# - src/bin/main.rs lesson number and description
 ```
 
-**Option B: Create from scratch**:
+**Option B: Generate with esp-generate (Best for new structure)**:
 ```bash
-mkdir -p lessons/{XX-lesson-name}/{src,tests,.cargo}
+esp-generate --chip esp32c6 lesson-{XX}-{name}
+cd lesson-{XX}-{name}
+# Follow steps in gen-lesson Phase 2 to configure
+```
+
+**Option C: Create from scratch**:
+```bash
+mkdir -p lessons/{XX-lesson-name}/{src/bin,tests,.cargo}
 ```
 
 ### Step 2.2: Create Cargo.toml
@@ -285,6 +293,10 @@ name = "lesson-{XX}-{name}"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
+
+[[bin]]
+name = "lesson-{XX}-{name}"
+path = "./src/bin/main.rs"
 
 [dependencies]
 # Hardware abstraction layer
@@ -421,7 +433,7 @@ fn linker_be_nice() {
 
 ### Step 2.6: Create Skeleton Files
 
-**src/main.rs** (skeleton):
+**src/bin/main.rs** (skeleton):
 ```rust
 //! # Lesson {XX}: {Feature Name}
 //!
@@ -892,9 +904,11 @@ When you flash and run this lesson, you should see:
 
 ## Code Structure
 
-- `src/main.rs` - Main firmware implementation
-- `Cargo.toml` - Project dependencies
+- `src/bin/main.rs` - Main firmware implementation
+- `src/lib.rs` - Library code (empty, not used)
+- `Cargo.toml` - Project manifest with `[[bin]]` section pointing to `src/bin/main.rs`
 - `.cargo/config.toml` - Build configuration with espflash runner
+- `rust-toolchain.toml` - Rust toolchain and RISC-V target
 
 ## Key Concepts
 
@@ -1048,11 +1062,12 @@ At completion, you'll have:
    - Success criteria
 
 2. **Lesson Code** (`lessons/{XX-lesson-name}/`)
-   - `src/main.rs` - Main firmware
-   - `Cargo.toml` - Dependencies
-   - `.cargo/config.toml` - espflash runner
-   - `rust-toolchain.toml` - Toolchain config
-   - `build.rs` - Helpful linker errors
+   - `src/bin/main.rs` - Main firmware
+   - `src/lib.rs` - Library code (empty)
+   - `Cargo.toml` - Project manifest with `[[bin]]` section
+   - `.cargo/config.toml` - espflash runner configuration
+   - `rust-toolchain.toml` - Toolchain config with RISC-V target
+   - `build.rs` - Build script with helpful linker errors
 
 3. **Documentation**
    - `lessons/{XX-lesson-name}/README.md` - Lesson docs

@@ -89,12 +89,13 @@ When you flash and run this lesson, you should see:
 
 ## Code Structure
 
-- `src/main.rs` - Main firmware with task system (~150 lines)
+- `src/bin/main.rs` - Main firmware with task system (~150 lines)
   - Pin configuration constants
   - Task struct and Context struct
   - Task functions (blink_task, monitor_task)
   - Main loop with scheduler
-- `Cargo.toml` - Project dependencies
+- `src/lib.rs` - Library code (empty, not used)
+- `Cargo.toml` - Project manifest with `[[bin]]` section
 - `.cargo/config.toml` - Build configuration with espflash runner
 - `rust-toolchain.toml` - Rust toolchain specification
 - `build.rs` - Build script for linker configuration

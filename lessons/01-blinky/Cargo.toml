@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 
+[[bin]]
+name = "lesson-01-blinky"
+path = "./src/bin/main.rs"
+
 [dependencies]
 # Hardware abstraction layer - controls ESP32-C6 peripherals
 esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
