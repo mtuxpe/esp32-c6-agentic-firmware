@@ -1056,6 +1056,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - **Keep tests simple** - focus on main use cases, not edge case exhaustion
 - Test-first approach helps design better APIs and cleaner code
 
+**Why test "obvious" logic?**
+1. **Regression prevention** - Tests catch bugs when you refactor 6 months later
+2. **Forces better design** - Thinking "how do I test this?" naturally leads to isolation, pure functions, and loose coupling
+3. **Living documentation** - Tests show how code should work
+4. **Confidence** - Change code without fear
+
+Even simple tests like "state transitions from Off to On" are valuable because they catch regressions when you add features later.
+
 ### 8. Copy Previous Lessons When Appropriate
 - Fastest way to start similar lessons
 - Ensures consistency

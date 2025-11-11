@@ -287,6 +287,34 @@ These pure functions now have comprehensive test coverage!
 
 Starting from Lesson 06, we'll adopt **test-driven development**:
 
+### Why Test "Obvious" Logic?
+
+You might think: *"Why test that a toggle state machine goes Off → On? That's obvious!"*
+
+**Three critical reasons:**
+
+1. **Regression Prevention** 🛡️
+   - You write logic today that works perfectly
+   - Six months later, you refactor or add features
+   - Your "obvious" test fails → **You just caught a bug before it shipped**
+   - Without the test, you'd discover the bug in production
+
+2. **TDD Forces Better Design** 🏗️
+   - Writing tests first makes you think: *"How do I test this?"*
+   - That question naturally leads to:
+     - **Isolation** - Separate pure logic from hardware
+     - **Pure functions** - No side effects, deterministic
+     - **Clear interfaces** - Testable APIs are good APIs
+     - **Loose coupling** - Easy to mock and test independently
+   - **Result**: Better architecture without trying
+
+3. **Living Documentation** 📖
+   - Tests show how code is *supposed* to work
+   - New developers read tests to understand behavior
+   - Tests are always up-to-date (or they fail)
+
+**Bottom line**: Tests aren't just about catching bugs *now*. They're about confidence when you change code *later*.
+
 ### TDD Workflow
 
 1. **Think about tests first** - What behavior do we want?
