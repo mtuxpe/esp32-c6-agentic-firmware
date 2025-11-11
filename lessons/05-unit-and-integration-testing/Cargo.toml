@@ -5,7 +5,8 @@ edition = "2021"
 rust-version = "1.88"
 
 [dependencies]
-# No dependencies - pure functions only
+# statig for state machine testing
+statig = { version = "0.3", default-features = false, features = ["macro"] }
 
 [profile.dev]
 opt-level = "s"

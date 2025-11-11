@@ -1038,13 +1038,25 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - User must confirm expected behavior
 - Checkpoint before proceeding to cleanup
 
-### 6. Simple, Readable Code
-- Target: ~150-200 lines for basic lessons
-- Code should be type-able for YouTube videos
+### 6. Simple, Readable Code for Live Typing
+- **Target: ~100-150 lines for basic lessons** (must be type-able live on video)
+- **NO edge case exhaustion** - cover the main use cases, not every possible scenario
+- **Keep tests minimal** - 3-5 tests max per module, not 10-20
+- **Simple state machines** - prefer 2-3 states, not complex multi-state systems
+- Code should be easy to type and explain verbally during live coding
 - Progressive complexity across lessons
-- Clear comments and documentation
+- Clear, concise comments (not essays)
+- **Remember**: User will be typing ALL of this code live for YouTube videos
 
-### 7. Copy Previous Lessons When Appropriate
+### 7. Test-Driven Development (TDD) for Future Lessons
+- **Write tests BEFORE implementation** when appropriate (for pure functions)
+- Think about testability first - separate hardware from logic
+- Host tests for algorithms, data transformations, state machines
+- Device tests for I2C/SPI/GPIO hardware validation
+- **Keep tests simple** - focus on main use cases, not edge case exhaustion
+- Test-first approach helps design better APIs and cleaner code
+
+### 8. Copy Previous Lessons When Appropriate
 - Fastest way to start similar lessons
 - Ensures consistency
 - Update names, numbers, and functionality

@@ -10,10 +10,12 @@
 
 pub mod color;
 pub mod rotation;
+pub mod state_machine;
 
 // Re-export commonly used types
 pub use color::{hsv_to_rgb, HsvColor};
 pub use rotation::calculate_rotation_angle;
+pub use state_machine::{Event, SimpleMachine};
 
 // GPIO pin constants
 pub const BUTTON_GPIO: u8 = 9;

@@ -23,10 +23,11 @@ This lesson demonstrates **host-based unit testing** for embedded code:
 ```
 lessons/05-unit-and-integration-testing/
 ├── src/
-│   ├── lib.rs           # Library entry point
-│   ├── color.rs         # HSV→RGB conversion with unit tests
-│   └── rotation.rs      # Rotation calculation with unit tests
-├── Cargo.toml           # No dependencies (pure functions only)
+│   ├── lib.rs             # Library entry point
+│   ├── color.rs           # HSV→RGB conversion with unit tests
+│   ├── rotation.rs        # Rotation calculation with unit tests
+│   └── state_machine.rs   # State machine with unit tests
+├── Cargo.toml             # Dependencies: statig for state machines
 └── README.md
 ```
 
@@ -51,20 +52,16 @@ mv rust-toolchain.toml.device rust-toolchain.toml
 
 **Expected Output:**
 ```
-running 24 tests
+running 28 tests
 test color::tests::test_black ... ok
 test color::tests::test_cyan ... ok
-test color::tests::test_gray ... ok
-test color::tests::test_pure_red ... ok
-test color::tests::test_pure_green ... ok
-test color::tests::test_pure_blue ... ok
 test rotation::tests::test_90_degrees ... ok
-test rotation::tests::test_180_degrees ... ok
-test rotation::tests::test_270_degrees ... ok
 test rotation::tests::test_quadrant_1 ... ok
-... (14 more tests)
+test state_machine::tests::test_initial_state ... ok
+test state_machine::tests::test_toggle_on ... ok
+... (22 more tests)
 
-test result: ok. 24 passed; 0 failed; 0 ignored
+test result: ok. 28 passed; 0 failed; 0 ignored
 ```
 
 ## Code Examples
@@ -130,6 +127,68 @@ mod tests {
 }
 ```
 
+### 3. State Machine Testing (state_machine.rs)
+
+```rust
+//! Simple toggle state machine using statig
+
+use statig::prelude::*;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Event {
+    ButtonPressed,
+}
+
+#[derive(Default)]
+pub struct SimpleMachine;
+
+#[state_machine(
+    initial = "State::off()",
+    state(derive(Debug, Clone, PartialEq))
+)]
+impl SimpleMachine {
+    #[state]
+    fn off(&mut self, event: &Event) -> Response<State> {
+        match event {
+            Event::ButtonPressed => Transition(State::on()),
+        }
+    }
+
+    #[state]
+    fn on(&mut self, event: &Event) -> Response<State> {
+        match event {
+            Event::ButtonPressed => Transition(State::off()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_initial_state() {
+        let sm = SimpleMachine::default().state_machine();
+        assert_eq!(sm.state(), &State::off());
+    }
+
+    #[test]
+    fn test_toggle_on() {
+        let mut sm = SimpleMachine::default().state_machine();
+        sm.handle(&Event::ButtonPressed);
+        assert_eq!(sm.state(), &State::on());
+    }
+
+    #[test]
+    fn test_toggle_off() {
+        let mut sm = SimpleMachine::default().state_machine();
+        sm.handle(&Event::ButtonPressed); // Off → On
+        sm.handle(&Event::ButtonPressed); // On → Off
+        assert_eq!(sm.state(), &State::off());
+    }
+}
+```
+
 ## Key Concepts
 
 ### What Makes a Function "Pure" and Testable?
@@ -177,7 +236,7 @@ pub fn update_led_from_sensor(i2c: &mut I2c, led: &mut Led) {
 
 ## Test Coverage
 
-This lesson includes **24 unit tests**:
+This lesson includes **28 unit tests**:
 
 **Color Module (12 tests):**
 - Primary colors (red, green, blue)
@@ -189,6 +248,12 @@ This lesson includes **24 unit tests**:
 - Cardinal directions (0°, 90°, 180°, 270°)
 - All four quadrants
 - Edge cases (zero input, large values, full range)
+
+**State Machine Module (4 tests):**
+- Initial state verification
+- State transitions (Off → On, On → Off)
+- Multiple toggle cycles
+- Event handling
 
 ## Benefits of Host Testing
 
@@ -218,12 +283,44 @@ This lesson extracts testable code from Lesson 04:
 
 These pure functions now have comprehensive test coverage!
 
+## Test-Driven Development (TDD) Going Forward
+
+Starting from Lesson 06, we'll adopt **test-driven development**:
+
+### TDD Workflow
+
+1. **Think about tests first** - What behavior do we want?
+2. **Write the test** - Define expected behavior in code
+3. **Watch it fail** - Confirm the test catches missing functionality
+4. **Implement** - Write minimum code to pass the test
+5. **Verify** - Run tests and confirm they pass
+6. **Refactor** - Improve code while keeping tests green
+
+### When to Use TDD
+
+✅ **Write tests first for:**
+- Pure functions (color conversion, calculations, parsing)
+- State machines (transitions, event handling)
+- Data transformations
+- Algorithms
+
+⚠️ **Write tests after for:**
+- Hardware setup (I2C init, GPIO config)
+- Exploratory code (not sure what API we want yet)
+- Quick prototypes
+
+### Keep Tests Simple
+
+- **3-5 tests per module** (not 10-20!)
+- Test main use cases, not every edge case
+- Code must be type-able for live videos
+- Focus on readability over exhaustive coverage
+
 ## Next Steps
 
-- Add unit tests to all future lessons
-- Practice test-driven development (write tests first)
-- Explore property-based testing with `proptest`
-- Learn `embedded-test` framework for device testing
+- **Lesson 06+**: Use TDD workflow for new features
+- Practice writing tests before implementation
+- Separate pure logic from hardware for easier testing
 
 ## Troubleshooting
 
