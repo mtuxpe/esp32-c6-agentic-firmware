@@ -1,33 +1,27 @@
 # Lesson 05: Unit and Integration Testing
 
-Testing embedded Rust code: host-based unit tests for pure functions.
+Testing embedded Rust code: host-based unit tests for pure functions and device integration tests for hardware.
 
 ## Learning Objectives
 
-- Understand the difference between unit tests (host) and integration tests (device)
+- Understand unit tests (host) vs integration tests (device)
 - Write host-based unit tests for pure functions
-- Use `#[cfg_attr(not(test), no_std)]` to conditionally enable std for testing
-- Separate testable logic from hardware-dependent code
-- Run tests on your development machine without hardware
-
-## What You'll Learn
-
-This lesson demonstrates **host-based unit testing** for embedded code:
-- Pure functions (HSV color conversion, rotation calculation) tested on host
-- Fast test execution without flashing to hardware
-- Standard Rust testing workflow with `cargo test`
-- Architectural patterns for testable embedded code
+- Create device integration tests for hardware
+- Use `#[cfg_attr(not(test), no_std)]` for testable code
+- Separate testable logic from hardware dependencies
 
 ## Project Structure
 
 ```
 lessons/05-unit-and-integration-testing/
 ├── src/
-│   ├── lib.rs             # Library entry point
-│   ├── color.rs           # HSV→RGB conversion with unit tests
-│   ├── rotation.rs        # Rotation calculation with unit tests
-│   └── state_machine.rs   # State machine with unit tests
-├── Cargo.toml             # Dependencies: statig for state machines
+│   ├── lib.rs              # Library entry point
+│   ├── color.rs            # HSV→RGB with tests
+│   ├── rotation.rs         # Rotation algorithm with tests
+│   └── state_machine.rs    # State machine with tests
+├── src/bin/
+│   └── integration_test.rs # Device I2C test
+├── Cargo.toml
 └── README.md
 ```
 
@@ -37,45 +31,40 @@ lessons/05-unit-and-integration-testing/
 
 ```bash
 cd lessons/05-unit-and-integration-testing
-
-# Temporarily remove device configuration
-mv .cargo .cargo.device
-mv rust-toolchain.toml rust-toolchain.toml.device
-
-# Run tests on your development machine
+mv .cargo .cargo.device && mv rust-toolchain.toml rust-toolchain.toml.device
 cargo test --lib
-
-# Restore device configuration
-mv .cargo.device .cargo
-mv rust-toolchain.toml.device rust-toolchain.toml
+mv .cargo.device .cargo && mv rust-toolchain.toml.device rust-toolchain.toml
 ```
 
-**Expected Output:**
-```
-running 28 tests
-test color::tests::test_black ... ok
-test color::tests::test_cyan ... ok
-test rotation::tests::test_90_degrees ... ok
-test rotation::tests::test_quadrant_1 ... ok
-test state_machine::tests::test_initial_state ... ok
-test state_machine::tests::test_toggle_on ... ok
-... (22 more tests)
+**Result:** 28 tests pass (color, rotation, state machine)
 
-test result: ok. 28 passed; 0 failed; 0 ignored
+### Device Integration Tests (Hardware Required)
+
+```bash
+cd lessons/05-unit-and-integration-testing
+cargo run --release --bin integration_test
+```
+
+**Expected output:**
+```
+🧪 Integration Test: I2C Communication
+Test 1: Initialize I2C...
+  ✓ I2C peripheral initialized
+Test 2: Read MPU9250 WHO_AM_I register...
+  WHO_AM_I: 0x71
+  ✓ Correct WHO_AM_I value
+Test 3: Multiple I2C reads (reliability)...
+  ✓ 10/10 reads successful
+🎉 Integration tests complete!
 ```
 
 ## Code Examples
 
-### 1. Pure Function with Host Tests (color.rs)
+### Pure Function Testing (color.rs)
 
 ```rust
-//! HSV to RGB color conversion - testable pure function
-
-#![cfg_attr(not(test), no_std)]  // Use no_std for embedded, std for tests
-
 pub fn hsv_to_rgb(hsv: HsvColor) -> (u8, u8, u8) {
     // Pure function - no hardware dependencies
-    // Integer-only math, works on both host and device
 }
 
 #[cfg(test)]
@@ -84,26 +73,16 @@ mod tests {
 
     #[test]
     fn test_pure_red() {
-        let hsv = HsvColor::new(0, 100, 100);
-        assert_eq!(hsv_to_rgb(hsv), (255, 0, 0));
-    }
-
-    #[test]
-    fn test_pure_green() {
-        let hsv = HsvColor::new(120, 100, 100);
-        assert_eq!(hsv_to_rgb(hsv), (0, 255, 0));
+        assert_eq!(hsv_to_rgb(HsvColor::new(0, 100, 100)), (255, 0, 0));
     }
 }
 ```
 
-### 2. Algorithm Testing (rotation.rs)
+### Algorithm Testing (rotation.rs)
 
 ```rust
-//! Rotation angle calculation - integer-only atan2 approximation
-
 pub fn calculate_rotation_angle(accel_x: i16, accel_y: i16) -> u32 {
-    // Pure function - maps accelerometer X/Y to 0-360°
-    // No floating point, no hardware dependencies
+    // Integer-only atan2 approximation
 }
 
 #[cfg(test)]
@@ -111,41 +90,15 @@ mod tests {
     #[test]
     fn test_quadrant_1() {
         let angle = calculate_rotation_angle(1000, 1000);
-        assert!((40..=50).contains(&angle), "45° ≈ {angle}°");
-    }
-
-    #[test]
-    fn test_angle_range() {
-        // Test edge cases
-        for x in [-16000, -8000, 0, 8000, 16000] {
-            for y in [-16000, -8000, 0, 8000, 16000] {
-                let angle = calculate_rotation_angle(x, y);
-                assert!(angle < 360, "Angle {angle} out of range");
-            }
-        }
+        assert!((40..=50).contains(&angle));
     }
 }
 ```
 
-### 3. State Machine Testing (state_machine.rs)
+### State Machine Testing (state_machine.rs)
 
 ```rust
-//! Simple toggle state machine using statig
-
-use statig::prelude::*;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Event {
-    ButtonPressed,
-}
-
-#[derive(Default)]
-pub struct SimpleMachine;
-
-#[state_machine(
-    initial = "State::off()",
-    state(derive(Debug, Clone, PartialEq))
-)]
+#[state_machine(initial = "State::off()")]
 impl SimpleMachine {
     #[state]
     fn off(&mut self, event: &Event) -> Response<State> {
@@ -153,216 +106,133 @@ impl SimpleMachine {
             Event::ButtonPressed => Transition(State::on()),
         }
     }
-
-    #[state]
-    fn on(&mut self, event: &Event) -> Response<State> {
-        match event {
-            Event::ButtonPressed => Transition(State::off()),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_initial_state() {
-        let sm = SimpleMachine::default().state_machine();
-        assert_eq!(sm.state(), &State::off());
-    }
-
     #[test]
     fn test_toggle_on() {
         let mut sm = SimpleMachine::default().state_machine();
         sm.handle(&Event::ButtonPressed);
         assert_eq!(sm.state(), &State::on());
     }
-
-    #[test]
-    fn test_toggle_off() {
-        let mut sm = SimpleMachine::default().state_machine();
-        sm.handle(&Event::ButtonPressed); // Off → On
-        sm.handle(&Event::ButtonPressed); // On → Off
-        assert_eq!(sm.state(), &State::off());
-    }
 }
+```
+
+### Integration Test (integration_test.rs)
+
+```rust
+// Test I2C communication on real hardware
+let mut i2c = I2c::new(peripherals.I2C0, Config::default())
+    .with_sda(peripherals.GPIO2)
+    .with_scl(peripherals.GPIO11);
+
+// Read WHO_AM_I from MPU9250
+let mut buffer = [0u8; 1];
+i2c.write_read(MPU9250_ADDR, &[WHO_AM_I_REG], &mut buffer)?;
+assert_eq!(buffer[0], EXPECTED_WHO_AM_I);
 ```
 
 ## Key Concepts
 
-### What Makes a Function "Pure" and Testable?
+### What's Testable?
 
-✅ **Pure Functions (Host Testable):**
-- No hardware dependencies (GPIO, I2C, SPI, etc.)
-- Deterministic (same input → same output)
-- No side effects
-- Examples: math calculations, data transformations, algorithms
+| Code Type | Test Method | Speed | Hardware |
+|-----------|-------------|-------|----------|
+| Pure functions | Host tests | Milliseconds | No |
+| Algorithms | Host tests | Milliseconds | No |
+| State machines | Host tests | Milliseconds | No |
+| Hardware I/O | Device tests | Seconds | Yes |
+| I2C/SPI | Device tests | Seconds | Yes |
 
-❌ **Hardware Functions (Require Device):**
-- Use GPIO, I2C, SPI, RMT peripherals
-- Timing-dependent operations
-- Interrupt handling
-- Examples: button debouncing, sensor reading, LED control
-
-### Testing Strategy
-
-| Code Type | Test Method | Speed | Hardware Required |
-|-----------|-------------|-------|-------------------|
-| Pure functions | Host unit tests (`cargo test`) | Fast (milliseconds) | No |
-| Algorithms | Host unit tests | Fast | No |
-| Hardware I/O | Device testing | Slow (flash + run) | Yes |
-| Integration | Device testing | Slow | Yes |
-
-### Pattern: Separate Pure Logic from Hardware
+### Good Architecture (Testable)
 
 ```rust
-// ✅ Good: Testable architecture
-pub fn calculate_color(angle: u32) -> (u8, u8, u8) {
-    // Pure function - host testable
-}
+// ✅ Pure logic - testable
+fn calculate_color(angle: u32) -> (u8, u8, u8) { ... }
 
-pub fn read_sensor_and_update_led(i2c: &mut I2c, led: &mut Led) {
+// ✅ Hardware - separate
+fn read_sensor_and_update_led(i2c: &mut I2c, led: &mut Led) {
     let angle = read_angle_from_sensor(i2c);  // Hardware
-    let (r, g, b) = calculate_color(angle);   // Pure (tested!)
+    let (r, g, b) = calculate_color(angle);   // Tested!
     led.set_color(r, g, b);                   // Hardware
-}
-
-// ❌ Bad: Mixed concerns
-pub fn update_led_from_sensor(i2c: &mut I2c, led: &mut Led) {
-    // Everything mixed together - hard to test
 }
 ```
 
-## Test Coverage
-
-This lesson includes **28 unit tests**:
-
-**Color Module (12 tests):**
-- Primary colors (red, green, blue)
-- Secondary colors (cyan, magenta, yellow)
-- Grayscale (black, white, gray)
-- Edge cases (hue wrapping, saturation clamping)
-
-**Rotation Module (12 tests):**
-- Cardinal directions (0°, 90°, 180°, 270°)
-- All four quadrants
-- Edge cases (zero input, large values, full range)
-
-**State Machine Module (4 tests):**
-- Initial state verification
-- State transitions (Off → On, On → Off)
-- Multiple toggle cycles
-- Event handling
-
-## Benefits of Host Testing
-
-1. **⚡ Fast Feedback**: Tests run in milliseconds, not seconds
-2. **🐛 Easy Debugging**: Use standard debuggers and tools
-3. **🤖 CI/CD Friendly**: Automated testing without hardware
-4. **💰 Cost Effective**: No hardware required for development
-5. **🔁 Rapid Iteration**: Test-driven development workflow
-
-## Limitations
-
-**What you CAN'T test on host:**
-- Hardware timing and delays
-- GPIO electrical characteristics
-- I2C/SPI communication protocols
-- Interrupt handling
-- Real sensor data
-- Multi-peripheral coordination
-
-**Solution:** Manual hardware validation or advanced frameworks like `embedded-test` (covered in future lessons)
-
-## Integration with Previous Lessons
-
-This lesson extracts testable code from Lesson 04:
-- `color.rs`: HSV→RGB conversion (originally in Lesson 04)
-- `rotation.rs`: Angle calculation (originally in Lesson 04 state machine)
-
-These pure functions now have comprehensive test coverage!
-
-## Test-Driven Development (TDD) Going Forward
-
-Starting from Lesson 06, we'll adopt **test-driven development**:
+## Test-Driven Development (TDD)
 
 ### Why Test "Obvious" Logic?
 
-You might think: *"Why test that a toggle state machine goes Off → On? That's obvious!"*
+**Regression Prevention** 🛡️
+- You write perfect logic today
+- Six months later you refactor and break it
+- Tests catch the bug before shipping
 
-**Three critical reasons:**
+**Forces Better Design** 🏗️
+- "How do I test this?" leads to:
+  - Separation of concerns (logic vs hardware)
+  - Pure functions (deterministic)
+  - Clear interfaces
+  - Loose coupling
 
-1. **Regression Prevention** 🛡️
-   - You write logic today that works perfectly
-   - Six months later, you refactor or add features
-   - Your "obvious" test fails → **You just caught a bug before it shipped**
-   - Without the test, you'd discover the bug in production
+**Living Documentation** 📖
+- Tests show how code should work
+- Always up-to-date (or they fail)
 
-2. **TDD Forces Better Design** 🏗️
-   - Writing tests first makes you think: *"How do I test this?"*
-   - That question naturally leads to:
-     - **Isolation** - Separate pure logic from hardware
-     - **Pure functions** - No side effects, deterministic
-     - **Clear interfaces** - Testable APIs are good APIs
-     - **Loose coupling** - Easy to mock and test independently
-   - **Result**: Better architecture without trying
-
-3. **Living Documentation** 📖
-   - Tests show how code is *supposed* to work
-   - New developers read tests to understand behavior
-   - Tests are always up-to-date (or they fail)
-
-**Bottom line**: Tests aren't just about catching bugs *now*. They're about confidence when you change code *later*.
-
-### TDD Workflow
+### TDD Workflow (Lesson 06+)
 
 1. **Think about tests first** - What behavior do we want?
-2. **Write the test** - Define expected behavior in code
-3. **Watch it fail** - Confirm the test catches missing functionality
-4. **Implement** - Write minimum code to pass the test
-5. **Verify** - Run tests and confirm they pass
-6. **Refactor** - Improve code while keeping tests green
+2. **Write the test** - Define expected behavior
+3. **Watch it fail** - Confirm test catches missing functionality
+4. **Implement** - Write minimum code to pass
+5. **Verify** - Tests pass
+6. **Refactor** - Improve while keeping tests green
 
-### When to Use TDD
-
-✅ **Write tests first for:**
-- Pure functions (color conversion, calculations, parsing)
-- State machines (transitions, event handling)
-- Data transformations
-- Algorithms
-
-⚠️ **Write tests after for:**
-- Hardware setup (I2C init, GPIO config)
-- Exploratory code (not sure what API we want yet)
-- Quick prototypes
-
-### Keep Tests Simple
+### Keep It Simple
 
 - **3-5 tests per module** (not 10-20!)
 - Test main use cases, not every edge case
 - Code must be type-able for live videos
-- Focus on readability over exhaustive coverage
 
-## Next Steps
+## Test Coverage
 
-- **Lesson 06+**: Use TDD workflow for new features
-- Practice writing tests before implementation
-- Separate pure logic from hardware for easier testing
+**28 Total Tests:**
+- Color: 12 tests (primary/secondary colors, grayscale, edge cases)
+- Rotation: 12 tests (quadrants, cardinal directions, ranges)
+- State Machine: 4 tests (transitions, multiple toggles)
+
+## Benefits
+
+- ⚡ **Fast Feedback** - Tests run in milliseconds
+- 🐛 **Easy Debugging** - Standard Rust debuggers
+- 🤖 **CI/CD Ready** - No hardware needed for unit tests
+- 💰 **Cost Effective** - No expensive test equipment
+- 🔁 **Confidence** - Refactor without fear
+
+## Limitations (Host Testing)
+
+Can't test on host:
+- Hardware timing/delays
+- GPIO electrical characteristics
+- I2C/SPI protocols (only logic)
+- Interrupts
+- Real sensor data
+
+**Solution:** Device integration tests (like integration_test.rs)
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| Tests won't compile | Ensure `.cargo/` and `rust-toolchain.toml` are renamed |
+| Tests won't compile | Rename `.cargo/` and `rust-toolchain.toml` |
 | `can't find crate for std` | Check `#![cfg_attr(not(test), no_std)]` in lib.rs |
-| Import errors | Modules need to be public (`pub mod color`) |
-| Test failures | Check test assertions match expected values |
+| Integration test build fails | Ensure esp-hal features enabled |
+| I2C test fails | Check hardware connections (GPIO2/11, MPU9250) |
 
 ## References
 
-- [The Rust Book: Writing Tests](https://doc.rust-lang.org/book/ch11-00-testing.html)
-- [Rust Embedded Book: Testing](https://docs.rust-embedded.org/book/start/qemu.html)
+- [The Rust Book: Testing](https://doc.rust-lang.org/book/ch11-00-testing.html)
+- [Rust Embedded Book](https://docs.rust-embedded.org/book/)
 - [Testing no_std code](https://blog.dbrgn.ch/2019/12/24/testing-for-no-std-compatibility/)
 
 ---
