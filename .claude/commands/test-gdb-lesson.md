@@ -77,23 +77,91 @@ documented but not tested with probe-rs. They require riscv32-esp-elf-gdb.
 
 All tests use **probe-rs** as the debugger. Follow these steps in order:
 
-#### Step 1: Environment Setup and Detection
+#### Step 0: Setup Environment Variables and Timeout Function
+
+**CRITICAL: Run this entire block in ONE bash call to preserve all variables for subsequent tests.**
 
 ```bash
 cd /Users/shanemattner/Desktop/esp32-c6-agentic-firmware/lessons/07-gdb-debugging
 
-# Clean up any existing debug sessions
-echo "Cleaning up existing debug sessions..."
+echo "=== Step 0: Environment Setup ==="
+
+# 1. Define cross-platform timeout command
+# Check in order: gtimeout (Homebrew), timeout (Linux), then fallback to manual kill
+if command -v gtimeout > /dev/null 2>&1; then
+    export CMD_TIMEOUT="gtimeout"
+    echo "✓ Timeout: gtimeout (Homebrew)"
+elif command -v timeout > /dev/null 2>&1; then
+    export CMD_TIMEOUT="timeout"
+    echo "✓ Timeout: timeout (GNU)"
+else
+    export CMD_TIMEOUT=""
+    echo "⚠ Timeout: Not available - will use background processes with manual kill"
+fi
+
+# 2. Detect USB CDC port (required)
+export USB_CDC_PORT=$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)
+if [ -z "$USB_CDC_PORT" ]; then
+    echo "✗ USB CDC: not found - cannot flash firmware"
+    exit 1
+else
+    echo "✓ USB CDC: $USB_CDC_PORT"
+fi
+
+# 3. Detect UART port (optional)
+export UART_PORT=$(ls /dev/cu.usbserial* 2>/dev/null | head -1)
+if [ -n "$UART_PORT" ]; then
+    echo "✓ UART: $UART_PORT"
+else
+    echo "⚠ UART: not found (optional - only needed for Test 6)"
+fi
+
+# 4. Detect ESP JTAG probe and extract VID:PID:Serial format
+export ESP_PROBE=$(probe-rs list 2>&1 | grep -i "esp.*jtag" | grep -oE '[0-9a-fA-F]{4}:[0-9a-fA-F]{4}(:[0-9A-F:]+)?' | head -1)
+if [ -n "$ESP_PROBE" ]; then
+    export PROBE_ARG="--probe $ESP_PROBE"
+    echo "✓ ESP Probe: $ESP_PROBE"
+    echo "  Probe arg: $PROBE_ARG"
+else
+    export PROBE_ARG=""
+    echo "⚠ ESP Probe: Auto-detection failed - will try without --probe flag"
+fi
+
+# 5. Verify all variables are set
+echo ""
+echo "=== Environment Variables Summary ==="
+echo "  USB_CDC_PORT=$USB_CDC_PORT"
+echo "  UART_PORT=${UART_PORT:-not set}"
+echo "  ESP_PROBE=${ESP_PROBE:-not set}"
+echo "  PROBE_ARG=${PROBE_ARG:-not set}"
+echo "  CMD_TIMEOUT=${CMD_TIMEOUT:-not set}"
+echo ""
+```
+
+**IMPORTANT:** If variables don't persist across bash calls in your environment, you have two options:
+1. Re-run the detection commands at the start of each test
+2. Hardcode the detected values (e.g., `USB_CDC_PORT="/dev/cu.usbmodem2101"`)
+
+
+#### Step 1: Cleanup and Verify Tools
+
+```bash
+# Clean up any existing debug sessions (do this at START, not END)
+# Reason: Previous test runs may have crashed, leaving orphaned processes
+# Better to clean up proactively than to fail with "exclusive access" errors
+echo "=== Step 1: Cleanup ==="
 pkill -f "probe-rs" || true
 pkill -f "openocd" || true
 sleep 1
 
-# Detect USB ports dynamically
-echo "Detecting ESP32-C6 USB ports..."
-USB_CDC_PORT=$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)
-UART_PORT=$(ls /dev/cu.usbserial* 2>/dev/null | head -1)
-echo "  USB CDC: ${USB_CDC_PORT:-not found}"
-echo "  UART: ${UART_PORT:-not found}"
+# Verify cleanup succeeded
+REMAINING=$(ps aux | grep -E "(probe-rs|openocd)" | grep -v grep | wc -l)
+if [ "$REMAINING" -gt 0 ]; then
+    echo "⚠ Warning: $REMAINING debug processes still running - may cause 'exclusive access' errors"
+    ps aux | grep -E "(probe-rs|openocd)" | grep -v grep
+else
+    echo "✓ Cleanup successful - no orphaned debug processes"
+fi
 
 # Verify probe-rs is available
 if ! which probe-rs > /dev/null 2>&1; then
@@ -102,19 +170,10 @@ if ! which probe-rs > /dev/null 2>&1; then
 fi
 echo "✓ probe-rs found: $(which probe-rs)"
 
-# Detect probes
+# Show detected probes
+echo ""
 echo "Detecting probes..."
 probe-rs list
-
-# Try to auto-detect ESP JTAG probe number
-ESP_PROBE=$(probe-rs list 2>&1 | grep -i "esp.*jtag" | grep -oE '^\[([0-9]+)\]' | tr -d '[]' | head -1)
-if [ -n "$ESP_PROBE" ]; then
-    echo "✓ Auto-detected ESP JTAG probe: $ESP_PROBE"
-    PROBE_ARG="--probe $ESP_PROBE"
-else
-    echo "⚠ Could not auto-detect ESP JTAG probe - will try without --probe flag"
-    PROBE_ARG=""
-fi
 ```
 
 #### Step 2: Build firmware with debug symbols
@@ -124,24 +183,36 @@ cargo build --release  # Has debug=2 in Cargo.toml
 
 #### Step 3: Flash firmware using espflash
 
-**Strategy:** Use `espflash` for flashing (NOT `probe-rs run`). This avoids exclusive lock issues.
+**IMPORTANT STRATEGY:** Use `espflash` for flashing, then `probe-rs attach` for debugging.
+
+**Why not `probe-rs run`?**
+- `probe-rs run` flashes AND attaches in one command
+- This creates an exclusive lock that blocks subsequent `probe-rs attach` commands
+- Separate flashing (espflash) and debugging (probe-rs attach) avoids this issue
 
 ```bash
-# Use the auto-detected USB CDC port from Step 1
+# Use the auto-detected USB CDC port from Step 1 (ALWAYS use variable, not hardcoded path)
 espflash flash --port ${USB_CDC_PORT} target/riscv32imac-unknown-none-elf/release/main
 
 # Verify firmware is running by capturing boot messages
 sleep 2
 python3 << EOF
 import serial, time
+# Use the auto-detected USB CDC port (not hardcoded path!) to handle device replug
 ser = serial.Serial('${USB_CDC_PORT}', 115200, timeout=2)
-ser.setDTR(False); time.sleep(0.1); ser.setDTR(True); time.sleep(1)
-print(ser.read(ser.in_waiting).decode('utf-8', errors='replace'))
+# Reset device by toggling DTR (Data Terminal Ready) pin
+# ESP32-C6 USB CDC uses DTR as a reset signal
+ser.setDTR(False)  # Assert reset
+time.sleep(0.1)
+ser.setDTR(True)   # Release reset
+time.sleep(1.5)    # Wait for boot messages
+output = ser.read(ser.in_waiting).decode('utf-8', errors='replace')
+print(output)
 ser.close()
 EOF
 ```
 
-Expected output: Should see "✓ I2C initialized", "✓ NeoPixel initialized", etc.
+Expected output: Should see ESP-IDF boot messages ("boot:", "ESP-ROM:", partition table).
 
 #### Step 4: Run Core Tests with probe-rs
 
@@ -218,9 +289,11 @@ test -f src/bin/main.rs && test -f src/lib.rs && test -f src/mpu9250.rs && test 
 echo $?  # Should be 0 (success)
 ```
 
-**Test 10: GDB Configuration Files**
+**Test 10: GDB Configuration Files (for future GDB testing)**
 ```bash
+# NOTE: This lesson supports both probe-rs and GDB workflows. These files are for GDB users.
 test -f .gdbinit && test -f gdb_helpers.py && test -f openocd.cfg
+# These files enable GDB debugging with OpenOCD (alternative to probe-rs)
 echo $?  # Should be 0
 ```
 
@@ -233,8 +306,15 @@ echo $?  # Should be 0 (no syntax errors)
 ### Expected Outputs
 
 **Test 1: Firmware Boot Verification**
-- Expected: Boot messages show successful peripheral initialization
-- Success criteria: See "✓ I2C initialized", "✓ NeoPixel initialized", "✓ Button configured", "✓ UART initialized"
+- Expected: Boot messages show successful firmware boot and ESP-IDF initialization
+- Success criteria (at least one of):
+  - See "boot:" or "ESP-ROM:" (bootloader messages)
+  - See "I (XX) boot:" (ESP-IDF boot logs)
+  - See partition table information
+  - Firmware-specific peripheral init messages (if added by lesson code)
+- Failure criteria:
+  - No output at all (likely USB CDC not working)
+  - Repeated panic/reset loops
 
 **Test 2: probe-rs Attach**
 - Expected: probe-rs enters interactive mode without errors
@@ -269,9 +349,10 @@ echo $?  # Should be 0 (no syntax errors)
 - Expected: All required source files present
 - Success criteria: All test commands return 0 (success)
 
-**Test 10: GDB Configuration Files**
+**Test 10: GDB Configuration Files (for future GDB testing)**
 - Expected: .gdbinit, gdb_helpers.py, openocd.cfg exist
-- Success criteria: All files present (for future GDB use)
+- Success criteria: All files present
+- Note: This lesson supports both probe-rs (tested here) and GDB workflows. These files enable GDB debugging with OpenOCD (alternative to probe-rs)
 
 **Test 11: Python Helper Script Syntax**
 - Expected: gdb_helpers.py has valid Python syntax
@@ -387,6 +468,46 @@ If you encounter errors:
 - **Be thorough** - Even if a test passes, note any unexpected behavior
 - **Time-box tests** - If a test hangs, wait max 30 seconds then FAIL and move on
 - **Clean up processes** - probe-rs auto-cleans on exit, but check for orphaned processes
+
+### Best Practices: Shell Commands and Scripts
+
+**For Complex Tests with Conditionals:**
+
+If a test requires multi-line logic with if/then/fi or complex conditionals, write to a temporary script to avoid shell parsing issues:
+
+```bash
+cat > /tmp/test_script.sh << 'SCRIPT'
+#!/bin/bash
+
+# Your test logic here with proper if/then/fi
+if [ -f some_file ]; then
+    echo "File exists"
+else
+    echo "File missing"
+fi
+SCRIPT
+
+chmod +x /tmp/test_script.sh
+/tmp/test_script.sh
+```
+
+**Why?** The bash tool executes commands in an eval context that can have issues with complex syntax. Temp scripts avoid parse errors like `(eval):1: parse error near 'then'`.
+
+**Variable Persistence:**
+
+If environment variables from Step 0 don't persist across bash calls:
+- Option 1: Re-detect at start of each test (e.g., `USB_CDC_PORT=$(ls /dev/cu.usbmodem* | head -1)`)
+- Option 2: Hardcode the values you detected in Step 0
+- Option 3: Consolidate related tests into one large bash call
+
+**Quoting probe arguments:**
+
+Always quote the probe argument when it contains colons:
+```bash
+probe-rs attach --chip esp32c6 --probe "$ESP_PROBE" target/.../main
+# or with literal value:
+probe-rs attach --chip esp32c6 --probe "303a:1001:F0:F5:BD:01:88:2C" target/.../main
+```
 
 ### Success Criteria
 

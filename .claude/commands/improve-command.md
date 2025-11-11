@@ -185,6 +185,111 @@ sleep 1
 
 ---
 
+### 7. Shell Syntax and Execution Context Issues
+
+**Indicators:**
+- Parse errors like `(eval):1: parse error near 'then'` or `parse error near ')'`
+- Commands work in terminal but fail when executed by LLM
+- Complex conditionals (if/then/fi) causing eval errors
+- Heredocs or multi-line commands failing unexpectedly
+- Quoting issues with special characters
+
+**What to extract:**
+- Which shell constructs are problematic in the execution context
+- Whether temp scripts work better than inline commands
+- Patterns that consistently fail vs patterns that work
+
+**Action:** Recommend temp scripts for complex logic, document working patterns
+
+**Example finding:**
+```markdown
+## Shell Syntax Issue: Complex conditionals in eval context
+- Failed: Inline `if [ -f file ]; then ... fi` in bash call → parse error
+- Worked: Write to /tmp/script.sh with heredoc, then execute script
+- Occurred: 3 times in tests 8-11
+
+**Recommendation:** Add best practice section:
+```bash
+# For complex multi-line logic, use temp scripts:
+cat > /tmp/test.sh << 'SCRIPT'
+#!/bin/bash
+if [ -f file ]; then
+    echo "exists"
+fi
+SCRIPT
+chmod +x /tmp/test.sh
+/tmp/test.sh
+```
+This avoids eval context parsing issues.
+```
+```
+
+---
+
+### 8. Variable Scope and Persistence Issues
+
+**Indicators:**
+- Variables defined but not available in next bash call
+- LLM resorts to hardcoding values that were dynamically detected
+- Export statements not working across separate tool invocations
+- Same detection logic repeated multiple times
+- Variables work in one command but undefined in next
+
+**What to extract:**
+- Which variables need to persist across commands
+- Whether `export` helps or if values should be re-detected
+- If consolidating into one bash call solves the issue
+
+**Action:** Recommend consolidated setup step, explicit re-detection, or export with verification
+
+**Example finding:**
+```markdown
+## Variable Persistence Issue: USB_CDC_PORT not available
+- Step 1: `USB_CDC_PORT=$(ls /dev/cu.usbmodem* | head -1)` → detected successfully
+- Step 2: `espflash flash --port $USB_CDC_PORT` → variable empty, command fails
+- Workaround: LLM hardcoded `/dev/cu.usbmodem2101`
+- Occurred: 2 times
+
+**Recommendation:**
+1. Add to Step 0: Use `export` for all variables that need to persist
+2. Add verification step to echo all variables after detection
+3. Document: "If export doesn't work, re-detect values or hardcode them"
+```
+```
+
+---
+
+### 9. Successful LLM Adaptations
+
+**Indicators:**
+- LLM found a better approach than the command documented
+- Creative workarounds that actually improved the process
+- Simplifications that worked better than complex instructions
+- Alternative tools or methods that proved more reliable
+
+**What to extract:**
+- Approaches the LLM discovered that should replace current instructions
+- Workarounds that reveal limitations in the original command design
+- Better patterns that should be codified
+
+**Action:** Update command to use the better approach, give credit to discovery
+
+**Example finding:**
+```markdown
+## Successful Adaptation: Temp scripts for complex tests
+- Command said: "Run inline bash with if/then/fi"
+- LLM did: Wrote to /tmp/test.sh, executed script
+- Result: Worked reliably, avoided all parse errors
+- Occurred: Successfully used 3 times after initial failures
+
+**Recommendation:** Adopt as official pattern:
+"For tests with conditionals, write to temp script instead of inline"
+This should be documented in "Best Practices" section.
+```
+```
+
+---
+
 ## Analysis Process
 
 ### Step 1: Read the Conversation Log
@@ -216,6 +321,18 @@ Go through the conversation chronologically and mark:
 - 🔵 Unnecessary steps (wasted effort)
 - 🟣 Missing context (information gaps)
 - ✅ Successful patterns (what worked well)
+- 🔧 Shell issues (parse errors, variable scope problems)
+- 🔄 LLM adaptations (better approaches LLM discovered)
+
+**Track Analysis Metrics:**
+- **Retry Rate:** Count commands attempted multiple times (e.g., "tried 3 times before success")
+- **Error Types:**
+  - Syntax errors (parse errors in eval context)
+  - Runtime errors (command not found, file not found)
+  - Logic errors (wrong result, incorrect assumption)
+- **Workaround Quality:** Did LLM find elegant solutions or just give up?
+- **Command Coverage:** What percentage of command instructions were actually followed?
+- **Adaptation Success:** How many LLM-discovered approaches worked better than documented?
 
 ### Step 4: Extract Specific Examples
 
@@ -253,6 +370,13 @@ Create a structured markdown report:
 - **Low Priority:** X
 - **New Discoveries:** X
 - **Successful Patterns:** X
+
+**Analysis Metrics:**
+- **Retry Rate:** X% of commands required multiple attempts
+- **Error Breakdown:** X syntax errors, X runtime errors, X logic errors
+- **Shell Issues:** X parse errors, X variable scope problems
+- **LLM Adaptations:** X successful workarounds discovered
+- **Command Coverage:** X% of instructions followed successfully
 
 **Overall Assessment:** [1-2 sentence summary]
 
