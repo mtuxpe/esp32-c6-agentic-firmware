@@ -1054,3 +1054,76 @@ After testing, we'll create these slash commands:
 
 **Ready to build a self-debugging system!** 🤖🔧
 
+
+---
+
+## What We Built
+
+This lesson includes:
+
+### 1. Complete Firmware (from Lesson 06)
+- ✅ I2C IMU (MPU9250)
+- ✅ NeoPixel LED (GPIO8)
+- ✅ Button input (GPIO9)
+- ✅ UART terminal (GPIO15/23)
+- All peripherals tested and working
+
+### 2. GDB Configuration
+- `openocd.cfg` - OpenOCD setup for ESP32-C6
+- `.gdbinit` - Auto-initialization with custom commands
+- `esp32c6-builtin.cfg` - USB-JTAG configuration
+
+### 3. GDB Helper Script
+`gdb_helpers.py` - Simple Python helpers:
+```gdb
+(gdb) source gdb_helpers.py
+(gdb) show-i2c        # I2C status with decoded flags
+(gdb) show-gpio       # GPIO state for key pins
+(gdb) show-all        # All peripherals at once
+(gdb) inspect led_on  # Smart variable inspection
+```
+
+### 4. Debugging Slash Command
+`.claude/commands/esp32-debug.md` - AI-assisted debugging workflow
+
+Use it with: `/esp32-debug` in Claude Code
+
+## Quick Test
+
+```bash
+# Build and flash
+cd lessons/07-gdb-debugging
+cargo build
+espflash flash --port /dev/cu.usbmodem2101 target/riscv32imac-unknown-none-elf/debug/main
+
+# Monitor boot (USB CDC)
+python3 << 'EOF'
+import serial, time
+ser = serial.Serial('/dev/cu.usbmodem2101', 115200, timeout=5)
+ser.setDTR(False); time.sleep(0.1); ser.setDTR(True); time.sleep(2)
+print(ser.read(ser.in_waiting).decode('utf-8', errors='replace'))
+EOF
+
+# Expected output:
+# INFO - ✓ I2C initialized (GPIO2=SDA, GPIO11=SCL)
+# INFO - ✓ MPU9250 awake
+# INFO - ✓ Button configured (GPIO9, active LOW)
+# INFO - ✓ NeoPixel initialized (GPIO8)
+# INFO - ✓ UART initialized (GPIO15=TX, GPIO23=RX, 115200 baud)
+# INFO - ✓ All peripherals initialized
+```
+
+## What's Next?
+
+This lesson focused on **GDB fundamentals** and the **feedback loop philosophy**.
+
+For advanced topics (save for future lessons):
+- Complex GDB Python automation
+- Performance profiling with sampling
+- Reverse debugging (time-travel)
+- RTOS-aware debugging
+- Memory analysis tools
+
+---
+
+**You now have a complete debugging workflow for embedded Rust development!** 🎉
