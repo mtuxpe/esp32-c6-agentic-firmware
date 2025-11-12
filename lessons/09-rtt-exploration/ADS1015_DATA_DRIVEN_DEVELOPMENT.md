@@ -2,6 +2,47 @@
 
 Using RTT telemetry to catch mistakes instantly and get the driver working fast.
 
+## Core Philosophy: Virtual Debug Ears and Eyes
+
+**Traditional embedded debugging:**
+- You're blind while firmware runs
+- You can stop at breakpoints (but freeze timing)
+- You can print to UART (but block the firmware)
+- You guess what's happening based on symptoms
+
+**Data-driven debugging with RTT:**
+- You have **eyes** inside the hardware (register values, ADC outputs, GPIO states, memory)
+- You have **ears** listening to I2C transactions, state changes, error flags, event counters
+- **Everything runs live** - firmware never stops, timing stays accurate
+- Patterns jump out immediately - you don't guess, you observe
+
+### RTT as Virtual Instrumentation
+
+Think of RTT logging as placing probes throughout your firmware:
+
+```
+Physical Hardware          Virtual Instrumentation (RTT Logs)
+──────────────────         ──────────────────────────────────
+
+I2C Bus      ────────→     "i2c: wr=5/5 rd=5/5 last_val=0x8483"
+Config Reg   ────────→     "ads_cfg: mux=0 pga=1 mode=0 dr=7"
+ADC Output   ────────→     "ads_adc: raw=0x0ABC volts=1.234"
+State FSM    ────────→     "ads_fsm: state=Reading time_ms=45"
+Error Flags  ────────→     "i2c: errs=0 timeouts=0 acks=0"
+```
+
+Instead of stopping the system to inspect a value (breakpoint), you let it run and **stream all the data to your terminal in real-time via RTT.**
+
+### Why This Matters for Autonomous Development
+
+Claude Code can:
+1. **See what's happening** - Full telemetry stream
+2. **Spot patterns** - Correlations reveal root causes
+3. **Propose fixes** - Based on actual hardware behavior, not guesses
+4. **Validate fixes** - Watch the telemetry change in real-time
+
+This is **100x faster** than "set a breakpoint → inspect → hypothesis → repeat."
+
 ## Philosophy
 
 Instead of: "Write driver → test → debug incrementally"
