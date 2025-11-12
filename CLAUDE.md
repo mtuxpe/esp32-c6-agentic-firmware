@@ -180,6 +180,41 @@ Use inline bash for:
 
 ---
 
+## Embedded Debugging Philosophy: Virtual Debug Ears and Eyes
+
+**The core insight:** Instead of being blind while firmware runs, instrument the entire system with RTT telemetry to get **real-time visibility into register values, state changes, and hardware behavior without stopping execution**.
+
+### Traditional vs Data-Driven Debugging
+
+**Traditional embedded debugging:**
+- Breakpoints freeze execution (destroy timing)
+- UART logging blocks the firmware (14 KB/s max)
+- You guess what's happening based on symptoms
+- Hypothesis test each subsystem (slow, repetitive)
+
+**Data-driven debugging with RTT:**
+- **Eyes:** See register values, ADC outputs, GPIO states, memory contents
+- **Ears:** Listen to I2C transactions, state transitions, error flags, event counters
+- Everything runs live (firmware never stops, timing stays accurate)
+- Patterns jump out immediately (no guessing, just observe)
+
+### RTT as Virtual Instrumentation
+
+Think of RTT logging as placing sensors throughout your firmware:
+
+```
+Physical Hardware              RTT Virtual Instrumentation
+────────────────────          ──────────────────────────
+
+I2C Bus           ────────→   "i2c: wr=5/5 rd=5/5 errs=0"
+Config Register   ────────→   "ads_cfg: mux=0 pga=1 mode=0 dr=7"
+ADC Output        ────────→   "ads_adc: raw=0x0ABC volts=1.234"
+State FSM         ────────→   "ads_fsm: state=Reading time_ms=45"
+Error Flags       ────────→   "i2c: timeouts=0 acks=0"
+```
+
+Instead of stopping to inspect a value (breakpoint), you let the firmware run and **stream all hardware state to your terminal in real-time**.
+
 ## Embedded Debugging Philosophy: Data-Driven Analysis
 
 **The core insight:** In complex embedded systems, you don't debug by hypothesis testing - you debug by **collecting all data and finding patterns**.

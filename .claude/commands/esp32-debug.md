@@ -263,23 +263,65 @@ Press button → LED toggles once → ✅ Fixed!
 
 ## Autonomous Debugging Pattern for Claude Code
 
-When debugging autonomously, start with MAXIMUM observability:
+### Virtual Debug Ears and Eyes Strategy
 
-**Strategy: Log Everything (RTT can handle 50-500+ variables)**
+Instead of being blind while firmware runs, **instrument everything with RTT to get real-time visibility into the system**.
+
+**Traditional debugging:**
+- Breakpoints freeze execution (destroy timing)
+- UART blocks firmware (14 KB/s, intrusive)
+- You guess what's happening
+
+**RTT-driven debugging:**
+- **Eyes:** See register values, ADC outputs, GPIO states, memory
+- **Ears:** Listen to I2C transactions, state changes, errors, counters
+- Everything runs live (non-blocking, timing accurate)
+- Patterns visible instantly (correlations reveal root causes)
+
+### Complete Hardware Instrumentation
+
+Log EVERYTHING every 10-100ms:
 
 ```rust
-// Log all relevant state every 10-100ms
-defmt::info!("tick: accel_x={} accel_y={} accel_z={} btn={} led={} i2c_err={} state={}",
-    accel_x, accel_y, accel_z, button_pressed, led_on, i2c_error_count, fsm_state
+// I2C layer - show communication health
+defmt::info!("i2c: wr={}/{} rd={}/{} err={} last_addr=0x{:02x} last_val=0x{:04x}",
+    write_success, write_attempts, read_success, read_attempts,
+    error_count, last_address, last_value
+);
+
+// Register values - what we wrote and what came back
+defmt::info!("cfg_wr: wrote=0x{:04x} mux={} pga={} mode={} dr={}",
+    config_written, (config_written>>12)&7, (config_written>>9)&7,
+    (config_written>>8)&1, (config_written>>5)&7
+);
+
+defmt::info!("cfg_rb: read=0x{:04x} mux={} pga={} mode={} match={}",
+    config_readback, (config_readback>>12)&7, (config_readback>>9)&7,
+    (config_readback>>8)&1, config_written==config_readback
+);
+
+// ADC results - raw data and converted values
+defmt::info!("adc: raw=0x{:04x} volts={:.3} busy={} ready={}",
+    conversion_raw, calculate_volts(raw, pga), busy_flag, ready_flag
+);
+
+// Data quality - detect stuck, saturation, noise
+defmt::info!("dat: min=0x{:04x} max=0x{:04x} range={} stuck={} var={}",
+    min_seen, max_seen, max_seen-min_seen, stuck_count, variance
+);
+
+// State machine - what's the firmware doing?
+defmt::info!("fsm: state={:?} changes={} time_ms={} timeout={}",
+    current_state, state_changes, time_in_state, timeout_active
 );
 ```
 
-**Why maximum logging first?**
+**Why maximum instrumentation?**
 - RTT is non-blocking, won't affect timing
-- 1-10 MB/s throughput = analyze 50-500+ variables at 100 Hz
+- 1-10 MB/s throughput = stream 100+ variables at 100 Hz
 - Firmware behavior revealed in real-time
-- Easier to spot correlations (button press → i2c_errors → state change)
-- Claude Code can parse structured logs and identify patterns instantly
+- Correlations visible instantly (register write → ADC reading change)
+- Claude Code spots patterns humans would miss
 
 **Variable Budget at Different Sample Rates:**
 - 50 variables @ 100 Hz = 20-50 KB/s (very safe, <1% of RTT capacity)
@@ -324,17 +366,20 @@ defmt::info!("sensors: ax={} ay={} az={} gx={} gy={} gz={} mx={} my={} mz={} tem
 - JTAG clock: separate from USB speed
 - Likely bottleneck: probe-rs defmt parsing/printing (not JTAG)
 
-## Key Principles
+## Key Principles: Virtual Debug Ears & Eyes
 
-1. **Always capture boot messages first** - fastest way to see what's happening
-2. **Log everything via RTT** - 50-500+ variables @ 100 Hz is feasible, reveals patterns instantly
-3. **Use structured defmt logs** - machine-parseable format enables AI pattern detection
-4. **RTT is non-blocking** - doesn't affect timing, safe to saturate the channel
-5. **Debugger limits, not JTAG limits** - probe-rs parsing speed is bottleneck, not bandwidth
-6. **Check peripheral registers** - hardware doesn't lie (address + offset from datasheet)
-7. **Use probe-rs memory access** - inspect without modifying code (probe-rs x/Nxw <addr>)
-8. **Test incrementally** - fix one thing at a time, validate with RTT logs
-9. **Leverage RTT for autonomy** - Massive observability → Claude identifies root cause → fix
+1. **Instrument everything via RTT** - 50-500+ variables @ 100 Hz, reveals patterns instantly
+2. **Log all hardware state** - Registers (written + readback), I2C transactions, ADC results, state machine, errors
+3. **Decoded bit fields** - Don't just log raw 0x8483, also log mux=0 pga=1 mode=0 dr=7
+4. **Register writes AND verification** - Log what you write, then log the readback to verify it stuck
+5. **RTT is non-blocking** - Won't affect timing, safe to saturate 1-10 MB/s channel
+6. **Structured defmt logs** - Machine-parseable format enables Claude Code pattern detection
+7. **Real-time visibility** - Watch everything simultaneously (correlations reveal root causes)
+8. **No hypothesis testing** - Just observe; patterns jump out, no guessing needed
+9. **Detect stuck/saturated states** - Log min/max/range/variance to catch data quality issues
+10. **Check peripheral registers** - Hardware doesn't lie; compare what you wrote vs what's there
+11. **Use probe-rs memory access** - For deep inspection without adding code (x/Nxw <addr>)
+12. **Leverage autonomy** - Complete visibility → Claude spots patterns instantly → fixes emerge
 
 ## Your Task
 
