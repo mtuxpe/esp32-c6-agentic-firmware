@@ -8,6 +8,10 @@ rust-version = "1.88"
 name = "main"
 path = "src/bin/main.rs"
 
+[[bin]]
+name = "main-esp-println"
+path = "src/bin/main-esp-println.rs"
+
 [dependencies]
 # ESP32 HAL and peripherals
 esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
@@ -15,6 +19,9 @@ esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
 # defmt structured logging (replaces esp-println + log)
 defmt = "0.3"
 defmt-rtt = "0.4"
+
+# esp-println for comparison (baseline logging)
+esp-println = { version = "0.11", features = ["esp32c6"] }
 
 # NeoPixel (from Lesson 01)
 smart-leds = "0.4"

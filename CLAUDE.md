@@ -128,6 +128,22 @@ No massive test plans until code works on hardware.
 ## Slash Commands & Tools
 
 Custom slash commands are stored in `.claude/commands/`:
+
+### Lesson Testing
+- **`/test-lesson <number> [mode]`** - Unified hardware testing for any lesson
+  - Examples: `/test-lesson 07`, `/test-lesson 08 full`
+  - Modes: `quick` (default, 3-5 min) or `full` (10-20 min)
+  - Auto-detects hardware (USB ports, JTAG probes)
+  - Reads lesson-specific `TEST.md` for test procedures
+  - Generates comprehensive test reports
+
+Each lesson has a `TEST.md` specification that documents:
+- Hardware setup and wiring
+- Automated tests (build, flash, infrastructure)
+- Interactive tests (manual verification)
+- Expected outputs and troubleshooting
+
+### RTT Debugging
 - **`/rtt [subcommand]`** - RTT (Real-Time Transfer) debugging and validation tools
   - `tutorial [topic]` - Learn RTT best practices interactively
   - `sweep [options]` - Performance characterization for your device

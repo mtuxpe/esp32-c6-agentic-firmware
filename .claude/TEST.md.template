@@ -1,0 +1,267 @@
+# Lesson XX Test Specification
+
+**Lesson:** {lesson_number} - {lesson_name}
+**Hardware:** ESP32-C6 + {specific peripherals}
+**Test Duration:** ~{N} minutes (quick), ~{M} minutes (full)
+
+---
+
+## Hardware Setup
+
+### Required Connections
+
+```
+ESP32-C6 Pin      →  Peripheral
+─────────────────────────────────
+GPIO X            →  {Description}
+GPIO Y            →  {Description}
+GND               →  GND (shared)
+3V3               →  VCC (if needed)
+```
+
+### Optional Connections
+
+```
+GPIO Z            →  {Optional peripheral}
+```
+
+### Verification Checklist
+
+- [ ] ESP32-C6 USB-C cable connected
+- [ ] JTAG debugger connected (if debugging required)
+- [ ] All peripheral power connections verified
+- [ ] Ground connections shared
+
+---
+
+## Test Modes
+
+### Quick Mode (default)
+- Build and flash firmware
+- Infrastructure validation
+- Basic boot verification
+- ~{N} minutes
+
+### Full Mode
+- All quick mode tests
+- Comprehensive hardware validation
+- Interactive debugging tests
+- Performance characterization
+- ~{M} minutes
+
+---
+
+## Automated Tests
+
+These tests run automatically via `/test-lesson {XX}`:
+
+### Test 1: Build Verification
+**Purpose:** Verify firmware compiles with no errors
+**Command:** `cargo build --release`
+**Success Criteria:**
+- Exit code 0
+- Binary size reasonable (< 100KB for simple lessons)
+- No compilation errors
+
+### Test 2: Debug Symbols
+**Purpose:** Verify debugging is possible
+**Command:** `file target/riscv32imac-unknown-none-elf/release/main | grep "not stripped"`
+**Success Criteria:** Binary contains debug information
+
+### Test 3: Source Code Structure
+**Purpose:** Verify all required files present
+**Command:** Check for required source files
+**Success Criteria:**
+- `src/bin/main.rs` exists
+- `src/lib.rs` exists (if needed)
+- `Cargo.toml` has [[bin]] section
+
+### Test 4: Flash Firmware
+**Purpose:** Verify firmware can be flashed to hardware
+**Command:** `espflash flash --port $USB_CDC_PORT target/.../main`
+**Success Criteria:**
+- Flash succeeds
+- No "exclusive access" errors
+- Firmware size matches expected
+
+### Test 5: Boot Verification
+**Purpose:** Verify firmware boots and runs
+**Method:** Read serial output for 2 seconds after reset
+**Success Criteria:**
+- Boot messages appear
+- No panic/crash messages
+- Expected initialization messages present
+
+**Expected Boot Output:**
+```
+{Paste expected boot messages here}
+```
+
+### Test 6: {Lesson-Specific Test 1}
+**Purpose:** {Description}
+**Command:** {How to test}
+**Success Criteria:** {What should happen}
+
+### Test 7: {Lesson-Specific Test 2}
+**Purpose:** {Description}
+**Command:** {How to test}
+**Success Criteria:** {What should happen}
+
+---
+
+## Interactive Tests (Manual)
+
+⚠️ **These tests require manual execution in an interactive terminal**
+
+### Interactive Test 1: {Test Name}
+**Purpose:** {What this tests}
+
+**Setup:**
+```bash
+source /tmp/test_env.sh
+cd "$LESSON_DIR"
+```
+
+**Commands:**
+```bash
+# Step-by-step commands
+{command1}
+{command2}
+```
+
+**Expected Output:**
+```
+{Expected terminal output}
+```
+
+**Success Criteria:**
+- {Criterion 1}
+- {Criterion 2}
+
+### Interactive Test 2: {Test Name}
+{Repeat structure above}
+
+---
+
+## Expected Outputs
+
+### Serial Console Output
+
+After flashing, the serial console should show:
+
+```
+{Paste complete expected output}
+```
+
+### LED/Visual Indicators
+
+- {Description of what should be visible}
+
+### Measurements (if applicable)
+
+- {Voltage readings}
+- {Timing measurements}
+- {Protocol captures}
+
+---
+
+## Troubleshooting
+
+### Issue: Firmware won't flash
+**Symptoms:** espflash fails with "exclusive access" error
+**Cause:** Another process using the port
+**Solution:**
+```bash
+pkill -f probe-rs
+pkill -f openocd
+# Retry flash
+```
+
+### Issue: No serial output after boot
+**Symptoms:** Blank serial console
+**Cause:** Wrong baud rate or USB cable
+**Solution:**
+- Verify baud rate is 115200
+- Try different USB cable (must support data)
+- Check USB port is correct: `ls /dev/cu.usbmodem*`
+
+### Issue: {Lesson-specific issue 1}
+**Symptoms:** {Description}
+**Cause:** {Root cause}
+**Solution:**
+```bash
+{Commands to fix}
+```
+
+### Issue: {Lesson-specific issue 2}
+**Symptoms:** {Description}
+**Cause:** {Root cause}
+**Solution:** {How to fix}
+
+---
+
+## Performance Benchmarks (Full Mode)
+
+{If applicable, document expected performance}
+
+### Timing Measurements
+- Boot time: ~{N}ms
+- Initialization time: ~{N}ms
+- {Operation} latency: ~{N}ms
+
+### Memory Usage
+- Stack usage: ~{N} bytes
+- Heap usage: ~{N} bytes
+- Total RAM: ~{N} KB
+
+### Protocol Performance (if applicable)
+- {Protocol} throughput: ~{N} bytes/sec
+- {Protocol} latency: ~{N} ms
+
+---
+
+## Test Report Template
+
+The `/test-lesson` command will generate a report following this structure:
+
+```markdown
+# Lesson XX Test Report
+
+**Date:** YYYY-MM-DD HH:MM
+**Mode:** {quick/full}
+**Duration:** X minutes
+
+## Summary
+- Total Tests: N
+- Passed: Y
+- Failed: Z
+- Success Rate: Y/N (XX%)
+
+## Environment
+- ESP32-C6: ✓/✗
+- Peripherals: ✓/✗
+- JTAG: ✓/✗
+
+## Test Results
+[Detailed results for each test]
+
+## Issues Found
+[Any problems encountered]
+
+## Conclusion
+[Overall pass/fail with recommendations]
+```
+
+---
+
+## Notes
+
+- This lesson requires {any special tools/equipment}
+- Expected completion time: {N} minutes for basic validation
+- Known issues: {Any known problems}
+- Related lessons: {Links to prerequisite or follow-up lessons}
+
+---
+
+**Last Updated:** YYYY-MM-DD
+**Verified On:** {Hardware revision, probe-rs version, etc.}
