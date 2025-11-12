@@ -1,120 +1,119 @@
-# Lesson 09: RTT Multi-Channel Exploration
+# Lesson 09: Data-Driven Debugging with RTT
 
-Real-Time Transfer (RTT) for non-blocking debugging via JTAG ring buffers.
+Building an ADS1015 ADC driver while exploring RTT's variable transmission budget for real-time firmware telemetry.
 
-## What is RTT?
+## Overview
 
-RTT is a non-blocking debugging protocol using in-memory ring buffers to communicate between host and device via JTAG. Unlike UART (14 KB/s), RTT achieves 1-10 MB/s throughput without blocking firmware execution.
+This lesson teaches two critical embedded Rust skills:
 
-**Key properties:**
-- Non-blocking - Device never waits for host
-- Multi-channel - Separate channels for different data types
-- Bidirectional - Host ↔ device communication
-- High throughput - 1-10 MB/s via JTAG
-- No GPIO overhead - Uses internal USB-JTAG
+1. **ADS1015 ADC Driver (RMT Protocol)** - Interfacing with 12-bit analog I2C sensor
+2. **Data-Driven Debugging** - Logging 50-500+ variables @ 100 Hz via RTT (non-blocking)
 
-**Typical channels:**
-- Channel 0: Structured logging (defmt)
-- Channel 1: Binary sensor data
-- Channel 2: Memory probes
-- Channel 3+: Host commands
+RTT (Real-Time Transfer) is the ideal telemetry pipe because it's **non-invasive and fast** - firmware never blocks, and you get 1-10 MB/s throughput vs UART's 14 KB/s.
+
+## Why This Approach?
+
+**Traditional embedded debugging:**
+- Minimal logging to avoid overhead
+- Hypothesis-test each subsystem
+- Risk missing complex interactions
+
+**Data-driven debugging with RTT:**
+- Log everything (variable bandwidth budgets, not minimal overhead)
+- Correlations reveal root cause instantly
+- Claude Code analyzes patterns from massive telemetry streams
+- RTT non-blocking means timing is accurate
+
+**Example:** ADS1015 reading is stuck at 0. With massive logging:
+```
+button_pressed=0 i2c_errors=5 adc_ready=0 adc_value=0
+→ I2C is timing out, not ADC problem
+→ Check I2C pull-ups
+```
+
+Without massive logging, you'd guess each subsystem independently.
 
 ## Hardware Setup
 
 ### Components
 - ESP32-C6-WROOM DevKit
-- MPU9250 9-DOF IMU (I2C)
+- ADS1015 12-bit ADC (I2C address 0x48)
+- MPU9250 9-DOF IMU (I2C, for sensor fusion testing)
 - WS2812 NeoPixel LED
-- Push button (active LOW)
-- USB cable (for JTAG access)
+- Push button
+- USB cable (JTAG access via built-in)
 
 ### Wiring
 
 | Component | GPIO | Notes |
 |-----------|------|-------|
+| ADS1015 SDA | GPIO2 | I2C data |
+| ADS1015 SCL | GPIO11 | I2C clock |
+| MPU9250 SDA | GPIO2 | I2C (shared bus) |
+| MPU9250 SCL | GPIO11 | I2C (shared bus) |
 | Button | GPIO9 | Active LOW |
 | NeoPixel | GPIO8 | Data line |
-| MPU9250 SDA | GPIO2 | I2C data |
-| MPU9250 SCL | GPIO11 | I2C clock |
-| UART TX | GPIO15 | USB CDC |
-| UART RX | GPIO23 | USB CDC |
 
 ## Quick Start
-
-### 1. Prerequisites
-
-```bash
-# probe-rs (Rust-native debugger)
-cargo install probe-rs --locked
-
-# defmt tooling
-cargo install defmt-print
-```
-
-### 2. Build & Flash
 
 ```bash
 cd lessons/09-rtt-exploration
 cargo build --release
-cargo run --release  # Flash to ESP32-C6
-```
-
-### 3. Monitor RTT Output
-
-```bash
-# With probe-rs running firmware
 probe-rs run --chip esp32c6 target/riscv32imac-unknown-none-elf/release/main
 ```
 
-Firmware will output structured logs via RTT.
+Watch RTT output - you'll see all variables streaming live.
 
 ## What You'll Learn
 
-1. **Multi-channel RTT setup** - Using defmt with multiple channels
-2. **Autonomous debugging patterns** - How Claude Code uses RTT for self-correction
-3. **Memory probing** - Inspecting variables without adding code
-4. **Event counters** - Non-blocking high-frequency event tracking
-5. **RTT bandwidth planning** - When RTT saturates and how to optimize
+1. **I2C ADC Driver (ADS1015)** - Rust driver for 12-bit ADC with configuration
+2. **RTT Variable Budgets** - How many variables can we log sustainably?
+3. **RMT Protocol** - Exploring alternatives to I2C for sensor interfaces
+4. **Data-Driven Debugging** - Logging strategies that reveal root causes
+5. **Autonomous Patterns** - How Claude Code uses RTT for self-correction
 
 ## Checkpoints
 
-- **C4:** Multi-channel RTT setup with defmt + structured types
-- **C5:** ADS1015 ADC driver (test-driven, RTT-observable)
-- **C6:** Python RTT explorer tool for autonomous debugging
-- **C7:** Sweep testing (sample rates, variable counts, performance limits)
+- **C4:** ADS1015 driver basic (read single-shot, RTT-observable state)
+- **C5:** ADS1015 continuous mode + multi-variable logging
+- **C6:** Sweep testing - variable count vs sample rate vs frame drops
+- **C7:** Profiling RTT limits - find max sustainable variables @ 100 Hz
 
-## Development Workflow
+## Variable Bandwidth Budget
 
-RTT enables iterative autonomous development:
+Instead of "minimal logging," think in **data throughput**:
 
 ```
-Claude Code generates firmware → Flash via probe-rs →
-Observe RTT output + memory probes → Analyze behavior →
-Identify issue + generate fix → Repeat
+RTT throughput: 1-10 MB/s (JTAG clock dependent)
+
+Example: 100 variables @ 100 Hz
+- Per variable: ~20 bytes/message
+- Total: 100 vars × 20 bytes × 100 Hz = 200 KB/s
+- Headroom: 200 KB/s out of 1-10 MB/s = safe
+
+100 variables @ 1000 Hz = 2 MB/s = still safe on 4+ MHz JTAG
 ```
 
-Unlike UART (blocking), RTT never blocks firmware, giving accurate feedback for autonomous debugging.
+We'll benchmark actual limits in checkpoint 7.
 
-## Key Difference: RTT vs UART
+## Key Philosophy
 
-| Aspect | UART | RTT |
-|--------|------|-----|
-| Throughput | 14-250 KB/s | 1-10 MB/s |
-| Blocking | Yes | No |
-| GPIO used | Yes | No (JTAG) |
-| Best for | Production | Development/Autonomous |
+**RTT is just the pipe.** The real topic is **data-driven debugging** - the idea that with sufficient telemetry bandwidth, root causes become obvious without hypothesis-testing.
 
-For lessons 8-9, RTT is ideal because firmware never blocks, enabling clean autonomous debugging.
+This is perfect for autonomous Claude Code development because:
+- Non-blocking (timing stays accurate)
+- High throughput (can observe everything)
+- Structured defmt logs (machine-parseable patterns)
+- Claude excels at correlating massive datasets
 
 ## References
 
-- [esp-hal RTT Documentation](https://docs.esp-rs.org/esp-hal/latest/esp_hal_rtt/index.html)
+- [ADS1015 Datasheet](https://www.ti.com/lit/ds/symlink/ads1015.pdf)
+- [esp-hal I2C](https://docs.esp-rs.org/esp-hal/latest/esp_hal/i2c/index.html)
 - [defmt Docs](https://defmt.ferrous-systems.com/)
 - [probe-rs Guide](https://probe.rs/)
-- [ESP32-C6 Technical Reference](https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf)
-
-See `CLAUDE.md` for embedded debugging strategies and RTT bandwidth planning.
+- See `CLAUDE.md` for embedded debugging philosophy
 
 ---
 
-**Ready to explore autonomous debugging with RTT!** 🎯
+**Build a practical ADC driver while exploring RTT's power for debugging** 🔍
