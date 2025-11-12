@@ -14,7 +14,7 @@ Use: "Write driver with maximum observability → mistakes reveal themselves imm
 **Why:** Most ADS1015 problems are I2C-related (bus errors, timeouts, address conflicts)
 
 ```rust
-// Track every I2C transaction
+// Track every I2C transaction AND raw register values
 struct I2CStats {
     write_attempts: u32,
     write_success: u32,
@@ -25,53 +25,101 @@ struct I2CStats {
     timeout_count: u32,
     ack_errors: u32,
     last_error_code: u32,
+
+    // Last values we tried to write/read
+    last_write_addr: u8,
+    last_write_data: u16,
+    last_read_addr: u8,
+    last_read_data: u16,
 }
 ```
 
 **Log every 100ms:**
 ```rust
-defmt::info!("i2c: writes={}/{} reads={}/{} timeouts={} acks={}",
+defmt::info!("i2c: wr={}/{} rd={}/{} err={} last_wr_addr=0x{:02x} last_wr_val=0x{:04x} last_rd_val=0x{:04x}",
     i2c_stats.write_success, i2c_stats.write_attempts,
     i2c_stats.read_success, i2c_stats.read_attempts,
-    i2c_stats.timeout_count, i2c_stats.ack_errors
+    i2c_stats.timeout_count,
+    i2c_stats.last_write_addr,
+    i2c_stats.last_write_data,
+    i2c_stats.last_read_data
 );
 ```
 
 **What you'll see:**
-- `writes=0/5` → I2C write is completely failing (address wrong? pull-ups missing?)
-- `reads=0/5` → Device isn't responding (powered? correct address?)
-- `acks=5` → Device acknowledged but data corrupted (bit timing? clock stretching?)
+- `wr=0/5 last_wr_addr=0x48` → Writing to address 0x48, but failing (device not there? address mismatch?)
+- `rd=0/5 last_rd_addr=0x01` → Trying to read config register, failing (device powered?)
+- `last_wr_val=0xFFFF last_rd_val=0x0000` → Writing max, reading zero (data line stuck? pull-ups wrong?)
 
-### Hardware Configuration
+### Hardware Configuration - All Register Values
 
-**Why:** Most bugs are in register writes (wrong address, wrong bit fields)
+**Why:** Most bugs are in register writes. Log EVERYTHING: what we write, what comes back, and decoded bit fields
 
 ```rust
-// Track what we're actually writing to ADS1015
-struct ADS1015Config {
-    // Config register (0x01) bits that matter
-    pga_gain: u8,        // Programmable gain (0-7)
-    mux_channel: u8,     // Input multiplexer (0-7)
-    os_status: u8,       // Operational status bit
-    dr_rate: u8,         // Data rate (0-7)
-
-    // What we think it is vs what hardware says
+// Log raw register values AND decoded bit fields
+struct ADS1015Registers {
+    // Config register (0x01) - all bits visible
     config_written: u16,
     config_readback: u16,
+
+    // Decoded from config register
+    mux: u8,            // Bits [14:12] - Input multiplexer (0-7)
+    pga: u8,            // Bits [11:9] - Programmable gain (0-7 = 6.144V to 0.256V)
+    mode: u8,           // Bit [8] - 0=continuous, 1=single-shot
+    dr: u8,             // Bits [7:5] - Data rate (0-7 = 128 SPS to 3300 SPS)
+    comp_mode: u8,      // Bit [4] - Comparator mode
+    comp_polarity: u8,  // Bit [3] - Comparator polarity
+    comp_latching: u8,  // Bit [2] - Latching comparator
+    comp_queue: u8,     // Bits [1:0] - Comparator queue
+
+    // Conversion register (0x00) - raw ADC result
+    conversion_raw: u16,
+
+    // Threshold registers for debugging
+    lo_thresh: u16,     // Reg 0x02 - Low threshold
+    hi_thresh: u16,     // Reg 0x03 - High threshold
 }
 ```
 
-**Log every time we configure:**
+**Log EVERY register read and write:**
 ```rust
-defmt::info!("ads1015_config: written=0x{:04x} readback=0x{:04x} match={}",
-    config.config_written, config.config_readback,
-    config.config_written == config.config_readback
+// After writing config
+defmt::info!("ads_cfg_wr: wrote=0x{:04x} mux={} pga={} mode={} dr={}",
+    config_written,
+    (config_written >> 12) & 0x7,
+    (config_written >> 9) & 0x7,
+    (config_written >> 8) & 0x1,
+    (config_written >> 5) & 0x7
+);
+
+// After reading back config to verify
+defmt::info!("ads_cfg_rb: read=0x{:04x} mux={} pga={} mode={} match={}",
+    config_readback,
+    (config_readback >> 12) & 0x7,
+    (config_readback >> 9) & 0x7,
+    (config_readback >> 8) & 0x1,
+    config_written == config_readback
+);
+
+// After every conversion result
+defmt::info!("ads_adc: raw=0x{:04x} decimal={} volts={:.3}",
+    conversion_raw,
+    (conversion_raw as i16) >> 4,  // ADS1015 uses 12-bit right-aligned
+    calculate_volts(conversion_raw, pga)
+);
+
+// Threshold registers (useful for comparator debugging)
+defmt::info!("ads_thresh: lo=0x{:04x} hi=0x{:04x}",
+    lo_thresh, hi_thresh
 );
 ```
 
-**What you'll see:**
-- `match=0` → Register write failed (I2C error? wrong address?)
-- `written=0xXXXX readback=0xYYYY` → Device modified the bits we wrote (did we set reserved bits?)
+**What you'll see (immediate problems jump out):**
+- `cfg_wr: mux=7 pga=0 dr=0` → PGA=0 is INVALID (why did we set it to 0?)
+- `cfg_rb: read=0xFFFF match=0` → Read back all 1s, mismatch with write (I2C corruption? wrong address?)
+- `adc: raw=0x8000 volts=-4.096` → Sat at negative full scale (input shorted to ground?)
+- `adc: raw=0x7FFF volts=4.095` → Sat at positive full scale (input floating or too high?)
+- `match=0 wrote=0x8483 read=0x0000` → We wrote valid config but read zeros (I2C lines stuck?)
 
 ### Conversion Results
 
@@ -209,19 +257,73 @@ defmt::info!("phase4: samples={} range={}..{} variance={} outliers={}",
 
 ## Complete Logging Strategy for ADS1015
 
-Log ALL of this every 100ms:
+Log EVERYTHING every 10-100ms (defmt is non-blocking via RTT):
+
+### Comprehensive Log Example
 
 ```rust
-defmt::info!("ads: state={:?} i2c_err={} cfg_ok={} adc_val={} volts={:.2} ready={} same={}",
-    state,              // Current state (Uninitialized/Configuring/Reading/etc)
-    i2c_error_count,    // How many I2C failures so far?
-    config_matches,     // Does readback match what we wrote?
-    raw_adc_value,      // Raw ADC reading
-    voltage_reading,    // Converted to volts
-    ready_bit_high,     // Is conversion done?
-    stuck_value_count   // How many times same value in a row?
+// I2C layer status
+defmt::info!("i2c: wr={}/{} rd={}/{} errs={} last_addr=0x{:02x} last_val=0x{:04x}",
+    write_success, write_attempts, read_success, read_attempts,
+    error_count, last_address, last_value
+);
+
+// Register values as written
+defmt::info!("ads_reg: cfg_wr=0x{:04x} mux={} pga={} mode={} dr={}",
+    config_written,
+    (config_written >> 12) & 0x7,
+    (config_written >> 9) & 0x7,
+    (config_written >> 8) & 0x1,
+    (config_written >> 5) & 0x7
+);
+
+// Register values as read back
+defmt::info!("ads_ver: cfg_rb=0x{:04x} mux={} pga={} mode={} OK={}",
+    config_readback,
+    (config_readback >> 12) & 0x7,
+    (config_readback >> 9) & 0x7,
+    (config_readback >> 8) & 0x1,
+    config_written == config_readback
+);
+
+// Conversion status and raw data
+defmt::info!("ads_adc: raw=0x{:04x} decimal={} volts={:.3} busy={} ready={}",
+    conversion_raw,
+    (conversion_raw as i16) >> 4,
+    calculate_volts(conversion_raw, pga),
+    conversion_busy_flag,
+    conversion_ready_flag
+);
+
+// Data quality and stuck detection
+defmt::info!("ads_dat: min=0x{:04x} max=0x{:04x} range={} stuck={} var={}",
+    min_value_seen,
+    max_value_seen,
+    max_value_seen - min_value_seen,
+    stuck_at_same_count,
+    rolling_variance
+);
+
+// Thresholds and comparator (if using)
+defmt::info!("ads_thr: lo=0x{:04x} hi=0x{:04x} cmp_out={}",
+    low_threshold, high_threshold, comparator_output
+);
+
+// State machine and timing
+defmt::info!("ads_fsm: state={:?} changed={} time_ms={} timeout_pending={}",
+    current_state, state_change_count, time_in_state_ms, timeout_active
 );
 ```
+
+### Bandwidth Calculation
+
+Per log entry:
+- 6 defmt::info calls × ~80 bytes each = 480 bytes per cycle
+- @ 100 Hz: 480 × 100 = 48 KB/s
+- Available RTT: 1-10 MB/s
+- **Utilization: 0.48% to 4.8%** - plenty of headroom!
+
+You can log even MORE details if needed without saturation.
 
 ## Example: Debugging a Stuck-at-Zero Problem
 
