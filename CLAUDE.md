@@ -180,6 +180,186 @@ Use inline bash for:
 
 ---
 
+## Embedded Debugging Strategies for RTT
+
+When using RTT (Real-Time Transfer) for autonomous firmware development and debugging, apply these battle-tested patterns:
+
+### Event Counters for High-Frequency Debugging
+
+Track events without blocking the main firmware loop using atomic operations:
+
+```rust
+use core::sync::atomic::{AtomicU32, Ordering};
+
+// Global event counters
+static I2C_ERRORS: AtomicU32 = AtomicU32::new(0);
+static GPIO_INTERRUPTS: AtomicU32 = AtomicU32::new(0);
+static SENSOR_READS: AtomicU32 = AtomicU32::new(0);
+
+// In interrupt handler or hot path:
+I2C_ERRORS.fetch_add(1, Ordering::Relaxed);  // 5-10 CPU cycles, non-blocking
+
+// Log periodically (e.g., every 100ms):
+defmt::info!("i2c_errors={}, interrupts={}, reads={}",
+    I2C_ERRORS.load(Ordering::Relaxed),
+    GPIO_INTERRUPTS.load(Ordering::Relaxed),
+    SENSOR_READS.load(Ordering::Relaxed)
+);
+```
+
+**Why this works:**
+- Atomic operations use hardware compare-and-swap, not locks
+- `Relaxed` ordering = no synchronization overhead
+- Periodic logging prevents RTT saturation
+- Counters survive firmware resets
+
+### Bit Array State Tracking
+
+For tracking many boolean states (e.g., 10K+ GPIO pin states), use bit arrays instead of byte arrays:
+
+```rust
+// Instead of: let mut states: [bool; 10000] = [false; 10000];  (10 KB)
+// Use a bit array (1.25 KB):
+
+let mut state_bits = [0u32; 312];  // 312 * 32 = 10,000 bits = 1,250 bytes
+
+// Set bit: state_bits[pin_id / 32] |= 1 << (pin_id % 32);
+// Clear bit: state_bits[pin_id / 32] &= !(1 << (pin_id % 32));
+// Read bit: (state_bits[pin_id / 32] >> (pin_id % 32)) & 1
+```
+
+**RTT streaming:**
+```rust
+// Stream as 32-bit words for efficient transfer
+for word in &state_bits {
+    defmt::info!("state_word: bits={:032b}", word);
+}
+// 10,000 bits → 312 defmt messages → ~2-3 KB RTT bandwidth
+```
+
+### Memory Budget Guidelines
+
+Allocate debug infrastructure based on available ESP32-C6 SRAM (512 KB total, ~400-450 KB available to user code):
+
+| Debug Level | Allocation | Use Cases |
+|-------------|-----------|-----------|
+| **Minimal** | 10-20 KB | Single driver, basic counters, 5-10 debug variables |
+| **Standard** | 50-80 KB | Multi-driver system, state tracking, event buffers |
+| **Extensive** | 100-150 KB | Full system observability, large ring buffers, state arrays |
+| **Available for App** | 250-400 KB | Remaining SRAM for actual firmware logic |
+
+**Allocation strategy:**
+```rust
+// Track actual usage
+const DEBUG_BUFFER_SIZE: usize = 64 * 1024;  // 64 KB for RTT ring buffers
+const STATE_ARRAY_SIZE: usize = 16 * 1024;   // 16 KB for state tracking
+const COUNTER_SIZE: usize = 4 * 1024;        // 4 KB for atomic counters
+const AVAILABLE_FOR_APP: usize = 512_000 - DEBUG_BUFFER_SIZE - STATE_ARRAY_SIZE - COUNTER_SIZE;
+// Available for app: ~428 KB
+```
+
+### RTT Bandwidth Planning
+
+RTT throughput depends on JTAG clock frequency. Plan logging accordingly:
+
+| JTAG Clock | Throughput | Recommended Load |
+|-----------|-----------|-----------------|
+| **1 MHz** | 250-500 KB/s | 5 variables @ 100 Hz |
+| **4 MHz** | 1-2 MB/s | 10-15 variables @ 100 Hz |
+| **10 MHz** | 3-5 MB/s | 20-30 variables @ 100 Hz |
+
+**Saturation limits:**
+- **Safe zone:** 1-2 MB/s (leaves headroom, won't drop frames)
+- **Good zone:** 2-4 MB/s (acceptable, occasional frame loss tolerable)
+- **Saturation:** 5+ MB/s (frame loss likely, debugging degrades)
+
+**Rule of thumb:** `throughput ≈ (variables × bytes_per_msg × sample_rate_hz) / 1_000_000`
+
+```rust
+// Example: 15 sensor readings, 8 bytes each, 100 Hz sample rate
+// Throughput = (15 × 8 × 100) / 1_000_000 = 0.012 MB/s (very safe)
+
+// Bad example: 50 variables, 32 bytes each, 1000 Hz
+// Throughput = (50 × 32 × 1000) / 1_000_000 = 1.6 MB/s (saturating)
+```
+
+### UART vs RTT Decision Matrix
+
+Choose based on development phase and requirements:
+
+| Factor | UART | RTT |
+|--------|------|-----|
+| **Throughput** | 14-250 KB/s | 1-10 MB/s |
+| **Blocking** | Yes (blocking write) | No (ring buffer) |
+| **GPIO Overhead** | Uses pins | Built-in JTAG |
+| **Hardware Needed** | USB-Serial | JTAG probe |
+| **Best For** | Production logging, simple debugging | Development, autonomous testing, high-speed capture |
+| **Cost** | Cheap (~$5) | Moderate (~$30-50) |
+
+**Recommendation:**
+- **Development (L08-L09):** RTT + defmt for non-blocking, structured logging
+- **Production (L10+):** UART + esp-println for power efficiency, external logging
+
+### Arbitrary Memory/Register Access
+
+Use probe-rs or GDB to inspect and modify memory at runtime without adding debug code:
+
+```bash
+# With probe-rs, you can query any variable from ELF symbols:
+probe-rs run --chip esp32c6 --probe <probe-id> target/*/debug/firmware
+
+# While running, attach GDB:
+gdb target/*/debug/firmware
+(gdb) target remote :3333  # OpenOCD port
+(gdb) print my_global_var
+(gdb) set my_global_var = 42
+(gdb) continue
+```
+
+**Best practices:**
+1. **Use ELF map file** to find variable addresses:
+   ```bash
+   cargo build && nm -n target/riscv32imac-unknown-none-elf/debug/firmware | grep my_var
+   ```
+
+2. **Read peripheral registers directly:**
+   ```bash
+   # Query GPIO state without adding logging code:
+   (gdb) x/1xw 0x60004000  # Read GPIO register
+   ```
+
+3. **Set conditional breakpoints on hardware state:**
+   ```bash
+   (gdb) break main.rs:42 if sensor_value > 1000
+   ```
+
+### Practical Debugging Workflow for Autonomous Development
+
+1. **Start with minimal RTT logging** (event counters only)
+2. **Use probe-rs memory access** to inspect intermediate variables
+3. **Stream state arrays** when investigating state machine issues
+4. **Use JTAG breakpoints** for hard-to-catch bugs (don't rely on logging)
+5. **Validate with bit patterns** (flip bits, watch peripherals respond)
+
+**Example: Debugging I2C driver autonomously**
+```rust
+// Step 1: Add event counters (always on)
+static I2C_WRITES: AtomicU32 = AtomicU32::new(0);
+static I2C_READS: AtomicU32 = AtomicU32::new(0);
+static I2C_ERRORS: AtomicU32 = AtomicU32::new(0);
+
+// Step 2: Claude Code queries counter changes
+defmt::info!("i2c: writes={}, reads={}, errors={}", ...);
+
+// Step 3: If errors increasing, use probe-rs to check I2C state
+// (gdb) x/16xb 0x60013000  # I2C register dump
+
+// Step 4: Add state streaming for detailed analysis
+defmt::info!("i2c_state: {:?}", i2c_fsm_state);
+```
+
+---
+
 ## Quick Reference
 
 | Task | Tool | Time |
@@ -224,5 +404,5 @@ See `.claude/rtt-guide.md` for complete RTT reference documentation.
 ---
 
 **Last Updated:** 2025-11-12
-**Current Work:** Lesson 08 (Structured Logging with defmt + RTT)
-**Next:** Lesson 08-C3 (Flash size comparison)
+**Current Work:** Lesson 08 Complete (Structured Logging with defmt + RTT)
+**Next:** Lesson 09 (RTT Multi-Channel Exploration)
