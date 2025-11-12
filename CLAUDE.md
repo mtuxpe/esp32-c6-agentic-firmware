@@ -180,6 +180,71 @@ Use inline bash for:
 
 ---
 
+## Embedded Debugging Philosophy: Data-Driven Analysis
+
+**The core insight:** In complex embedded systems, you don't debug by hypothesis testing - you debug by **collecting all data and finding patterns**.
+
+### Why Traditional Debugging Fails in Embedded
+
+```
+Old approach: "Button doesn't work → check button pin → check interrupt → check state machine"
+Problem: You're guessing at what's wrong. What if it's actually an I2C timeout that cascades?
+         Or a race condition between ISR and main loop? Or corrupted state from previous operation?
+```
+
+### Data-Driven Debugging with RTT
+
+```
+New approach: "Button doesn't work → log ALL variables (GPIO, I2C, ISR state, FSM, timers, etc.)
+              at 100 Hz → analyze patterns → see: 'button press → i2c_errors spike → sensor stops
+              responding → LED never updates'"
+Result: Root cause visible instantly. Fix is obvious: add I2C timeout recovery.
+```
+
+### Why This Works with Claude Code
+
+1. **Humans are pattern-matchers** - Claude excels at analyzing massive datasets
+2. **Correlations reveal causality** - When variables spike together, something connects them
+3. **No hypothesis needed** - Just collect data and analyze. The relationships appear naturally
+4. **RTT is non-blocking** - Unlike UART, timing stays accurate. Bugs don't hide
+5. **Structured defmt logs** - Machine-parseable format enables automated pattern detection
+
+### Variable Bandwidth Budget Approach
+
+Instead of thinking "add minimal debug code," think in **data throughput budgets**:
+
+```
+Available RTT bandwidth: 1-10 MB/s depending on JTAG clock
+
+Typical variable sizes @ 100 Hz:
+- 4-byte integer: ~4 bytes per log
+- defmt overhead: ~10-20 bytes per message
+- Total per variable: ~15-25 bytes
+
+Example: 100 variables × 25 bytes × 100 Hz = 250 KB/s
+         This is 0.25% of RTT capacity on a 100 MB/s system
+         Plenty of headroom for multiple channels and variable data
+```
+
+### When to Use This Strategy
+
+✅ **Use maximum observability when:**
+- System behavior is complex or non-obvious
+- Multiple subsystems interact (I2C + GPIO + ISR + main loop)
+- You're unfamiliar with the code
+- Timing-sensitive bugs (RTT's non-blocking nature is critical)
+- Quick iteration needed (Claude analyzing logs is fast)
+
+❌ **Minimize logging only when:**
+- Memory severely constrained (< 50 KB available for debug infrastructure)
+- Production deployment (then use minimal counters for telemetry)
+- Proven simple bugs (single-subsystem issues)
+
+### The shift: From "minimal overhead" to "maximum insight"
+
+Traditional embedded development: "We need to log carefully to avoid overhead"
+RTT-driven development: "We have 1-10 MB/s available, let's use it all"
+
 ## Embedded Debugging Strategies for RTT
 
 When using RTT (Real-Time Transfer) for autonomous firmware development and debugging, apply these battle-tested patterns:
