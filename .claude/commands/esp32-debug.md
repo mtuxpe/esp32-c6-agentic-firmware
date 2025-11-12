@@ -131,6 +131,36 @@ defmt::info!("i2c_errors={}, interrupts={}",
 
 Use probe-rs memory access to watch counters change in real-time without modifying code.
 
+**RTT Bandwidth Planning:**
+- **1 MHz JTAG:** 250-500 KB/s (safe for 5 variables @ 100 Hz)
+- **4 MHz JTAG:** 1-2 MB/s (good for 10-15 variables @ 100 Hz)
+- **10 MHz JTAG:** 3-5 MB/s (can handle 20-30 variables @ 100 Hz)
+
+If RTT output drops frames, reduce logging frequency or variable count.
+
+### Step 5b: Bit Array State Tracking
+
+For tracking large arrays of boolean states (e.g., GPIO pin status):
+
+```rust
+// Instead of: let mut states: [bool; 1000];  (1 KB)
+// Use: let mut state_bits = [0u32; 32];  (128 bytes, 8x savings)
+
+// Set bit: state_bits[pin_id / 32] |= 1 << (pin_id % 32);
+// Read bit: (state_bits[pin_id / 32] >> (pin_id % 32)) & 1
+
+// Stream to RTT efficiently
+for (i, word) in state_bits.iter().enumerate() {
+    defmt::info!("gpio_states[{}]: 0x{:08x}", i, word);
+}
+```
+
+**Memory allocation strategy:**
+- Minimal debug: 10-20 KB for debug infrastructure
+- Standard debug: 50-80 KB for multi-driver systems
+- Extensive debug: 100-150 KB for full system visibility
+- Available for app: 250-400 KB remaining (ESP32-C6 has 512 KB total)
+
 ### Step 6: Iterative Fix and Test
 
 1. Identify root cause from boot messages and probe-rs inspection
@@ -231,6 +261,37 @@ cargo build && espflash flash --port /dev/cu.usbmodem2101 target/riscv32imac-unk
 **Step 6 - Verify**:
 Press button → LED toggles once → ✅ Fixed!
 
+## Autonomous Debugging Pattern for Claude Code
+
+When debugging autonomously, follow this efficient sequence:
+
+**1. Start with minimal logging** (event counters only)
+```rust
+static ISSUE_COUNT: AtomicU32 = AtomicU32::new(0);
+ISSUE_COUNT.fetch_add(1, Ordering::Relaxed);
+// Periodic log: defmt::info!("issues={}", ISSUE_COUNT.load(...));
+```
+
+**2. If counters change unexpectedly, use probe-rs memory access**
+```bash
+# No code modification needed - inspect runtime state
+(gdb) print my_global_var
+(gdb) x/1xw 0x60013004  # Read peripheral register
+```
+
+**3. For detailed analysis, add state streaming**
+```rust
+defmt::info!("state: fsm={}, flags=0x{:08x}", fsm_state, flags);
+// Stream as 32-bit words for efficient transfer
+```
+
+**4. Use breakpoints only for hard-to-catch bugs**
+```bash
+(gdb) break sensor_read if error_count > 5
+```
+
+**5. Validate fix with RTT, not UART** - RTT never blocks firmware
+
 ## Key Principles
 
 1. **Always capture boot messages first** - fastest way to see what's happening
@@ -239,7 +300,8 @@ Press button → LED toggles once → ✅ Fixed!
 4. **Check peripheral registers** - hardware doesn't lie (address + offset from datasheet)
 5. **Test incrementally** - fix one thing at a time
 6. **Verify the fix** - always confirm it works
-7. **Leverage autonomy** - Claude Code can iterate: observe → fix → test → repeat
+7. **Leverage RTT for autonomy** - Non-blocking → accurate feedback → self-correcting code
+8. **Stream to RTT, not UART** - UART blocking can mask timing issues
 
 ## Your Task
 
