@@ -263,45 +263,78 @@ Press button → LED toggles once → ✅ Fixed!
 
 ## Autonomous Debugging Pattern for Claude Code
 
-When debugging autonomously, follow this efficient sequence:
+When debugging autonomously, start with MAXIMUM observability:
 
-**1. Start with minimal logging** (event counters only)
+**Strategy: Log Everything (RTT can handle 50-500+ variables)**
+
 ```rust
-static ISSUE_COUNT: AtomicU32 = AtomicU32::new(0);
-ISSUE_COUNT.fetch_add(1, Ordering::Relaxed);
-// Periodic log: defmt::info!("issues={}", ISSUE_COUNT.load(...));
+// Log all relevant state every 10-100ms
+defmt::info!("tick: accel_x={} accel_y={} accel_z={} btn={} led={} i2c_err={} state={}",
+    accel_x, accel_y, accel_z, button_pressed, led_on, i2c_error_count, fsm_state
+);
 ```
 
-**2. If counters change unexpectedly, use probe-rs memory access**
-```bash
-# No code modification needed - inspect runtime state
-(gdb) print my_global_var
-(gdb) x/1xw 0x60013004  # Read peripheral register
-```
+**Why maximum logging first?**
+- RTT is non-blocking, won't affect timing
+- 1-10 MB/s throughput = analyze 50-500+ variables at 100 Hz
+- Firmware behavior revealed in real-time
+- Easier to spot correlations (button press → i2c_errors → state change)
+- Claude Code can parse structured logs and identify patterns instantly
 
-**3. For detailed analysis, add state streaming**
+**Variable Budget at Different Sample Rates:**
+- 50 variables @ 100 Hz = 20-50 KB/s (very safe, <1% of RTT capacity)
+- 100 variables @ 100 Hz = 40-100 KB/s (safe)
+- 200 variables @ 100 Hz = 80-200 KB/s (good)
+- 500 variables @ 100 Hz = 200-500 KB/s (still safe on 4+ MHz JTAG)
+
+**Maximum Sustainable Throughput:**
+Depends on probe-rs/defmt parsing speed, not JTAG bandwidth:
+- **probe-rs parsing:** ~1-10 MB/s (likely bottleneck)
+- **defmt encoding:** <1 MB/s overhead
+- **JTAG transfer:** 10+ MB/s @ 10 MHz (rarely saturates)
+
+**Practical limits to test:**
 ```rust
-defmt::info!("state: fsm={}, flags=0x{:08x}", fsm_state, flags);
-// Stream as 32-bit words for efficient transfer
+// Benchmark: Can we log 100+ variables at 100 Hz?
+// Example: Full I2C state dump
+defmt::info!("i2c: status=0x{:04x} scl={} sda={} fifo={} timeout={} ack_err={} arb_lost={}",
+    i2c_status, scl_pin, sda_pin, fifo_level, timeout_flag, ack_error, arbitration_lost
+);
+
+// Example: Full GPIO state dump (32 pins)
+defmt::info!("gpio: out=0x{:08x} in=0x{:08x} enable=0x{:08x} int_st=0x{:08x}",
+    gpio_out, gpio_in, gpio_enable, gpio_interrupt_status
+);
+
+// Example: Full sensor fusion
+defmt::info!("sensors: ax={} ay={} az={} gx={} gy={} gz={} mx={} my={} mz={} temp={}",
+    ax, ay, az, gx, gy, gz, mx, my, mz, temperature
+);
 ```
 
-**4. Use breakpoints only for hard-to-catch bugs**
-```bash
-(gdb) break sensor_read if error_count > 5
-```
+**If RTT drops frames:**
+- Increase JTAG clock (up to 10 MHz)
+- Reduce sample rate (100 Hz → 50 Hz)
+- Reduce variable count (compress less important data)
+- Check probe-rs buffer size (may need tuning)
 
-**5. Validate fix with RTT, not UART** - RTT never blocks firmware
+**Debugger Bottleneck Analysis:**
+- probe-rs uses CMSIS-DAP protocol over USB
+- USB 2.0 Full-Speed: 12 Mbps max (1.5 MB/s theoretical)
+- JTAG clock: separate from USB speed
+- Likely bottleneck: probe-rs defmt parsing/printing (not JTAG)
 
 ## Key Principles
 
 1. **Always capture boot messages first** - fastest way to see what's happening
-2. **Use probe-rs memory access** - inspect variables and registers without modifying code
-3. **Add minimal RTT logging** - use atomic event counters for high-frequency debugging
-4. **Check peripheral registers** - hardware doesn't lie (address + offset from datasheet)
-5. **Test incrementally** - fix one thing at a time
-6. **Verify the fix** - always confirm it works
-7. **Leverage RTT for autonomy** - Non-blocking → accurate feedback → self-correcting code
-8. **Stream to RTT, not UART** - UART blocking can mask timing issues
+2. **Log everything via RTT** - 50-500+ variables @ 100 Hz is feasible, reveals patterns instantly
+3. **Use structured defmt logs** - machine-parseable format enables AI pattern detection
+4. **RTT is non-blocking** - doesn't affect timing, safe to saturate the channel
+5. **Debugger limits, not JTAG limits** - probe-rs parsing speed is bottleneck, not bandwidth
+6. **Check peripheral registers** - hardware doesn't lie (address + offset from datasheet)
+7. **Use probe-rs memory access** - inspect without modifying code (probe-rs x/Nxw <addr>)
+8. **Test incrementally** - fix one thing at a time, validate with RTT logs
+9. **Leverage RTT for autonomy** - Massive observability → Claude identifies root cause → fix
 
 ## Your Task
 
