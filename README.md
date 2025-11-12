@@ -26,6 +26,7 @@ Progressive tutorials from basic GPIO to advanced features:
 - **06-uart-shell** - UART communication and CLI
 - **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - GDB debugging with OpenOCD
 - **[08-defmt-rtt-logging](./lessons/08-defmt-rtt-logging/)** ✅ - Structured logging with defmt + RTT
+- **[09-rtt-exploration](./lessons/09-rtt-exploration/)** 🔜 - RTT multi-channel + autonomous LLM debugging
 
 See [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md) for the full curriculum.
 

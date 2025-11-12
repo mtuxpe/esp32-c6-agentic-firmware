@@ -103,6 +103,71 @@ No massive test plans until code works on hardware.
 
 ---
 
+## Bash Execution Best Practices
+
+### Shell Limitations in LLM Context
+
+The LLM's bash execution environment has important limitations:
+
+**❌ Complex conditionals fail inline:**
+```bash
+# This will cause parse errors:
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "success"
+fi
+```
+
+**✅ Use temp scripts for complex logic:**
+```bash
+# This works reliably:
+cat > /tmp/script.sh << 'SCRIPT'
+#!/bin/bash
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "success"
+fi
+SCRIPT
+chmod +x /tmp/script.sh
+/tmp/script.sh
+```
+
+### Variable Persistence
+
+**Variables DON'T persist across Bash() tool calls:**
+```bash
+# Step 1:
+export MY_VAR="value"
+
+# Step 2 (different Bash call):
+echo $MY_VAR  # Empty! Variable is gone
+```
+
+**Use file-based state management:**
+```bash
+# Step 1: Save to file
+echo "value" > /tmp/my_var.txt
+
+# Step 2: Read from file
+MY_VAR=$(cat /tmp/my_var.txt)
+echo $MY_VAR  # Works!
+```
+
+**Don't rely on `export` or `source`** - they don't work across tool invocations.
+
+### When to Use Temp Scripts
+
+Use temp scripts (`/tmp/*.sh`) for:
+- Commands with if/then/fi conditionals
+- Loops (for, while)
+- Complex variable manipulation
+- Multi-step operations with error checking
+
+Use inline bash for:
+- Simple single commands
+- Command chains with `&&` or `||`
+- Quick reads/writes without conditionals
+
+---
+
 ## Common Mistakes to Avoid
 
 1. ❌ Using Task() to generate files
@@ -110,6 +175,8 @@ No massive test plans until code works on hardware.
 3. ❌ Massive documentation before working code
 4. ❌ Not testing on hardware
 5. ❌ Using expensive models (Sonnet/Opus) by default
+6. ❌ Using complex conditionals inline in Bash (use temp scripts!)
+7. ❌ Expecting variables to persist across Bash() calls (use files!)
 
 ---
 

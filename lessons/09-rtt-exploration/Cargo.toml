@@ -1,0 +1,48 @@
+[package]
+name = "lesson-08-defmt-rtt-logging"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[[bin]]
+name = "main"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "main-esp-println"
+path = "src/bin/main-esp-println.rs"
+
+[dependencies]
+# ESP32 HAL and peripherals
+esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
+
+# defmt structured logging (replaces esp-println + log)
+defmt = "0.3"
+defmt-rtt = "0.4"
+
+# esp-println for comparison (baseline logging)
+esp-println = { version = "0.11", features = ["esp32c6"] }
+
+# NeoPixel (from Lesson 01)
+smart-leds = "0.4"
+esp-hal-smartled2 = { version = "0.26", features = ["esp32c6"] }
+
+# State machine (from Lesson 04)
+statig = { version = "0.3", default-features = false, features = ["macro"] }
+
+# UART CLI framework
+menu = { version = "0.6", default-features = false }
+heapless = "0.8"
+
+[profile.dev]
+opt-level = "s"
+debug = 2  # Full debug symbols for GDB
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false
