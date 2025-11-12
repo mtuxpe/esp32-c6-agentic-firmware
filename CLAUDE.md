@@ -335,28 +335,41 @@ gdb target/*/debug/firmware
 
 ### Practical Debugging Workflow for Autonomous Development
 
-1. **Start with minimal RTT logging** (event counters only)
-2. **Use probe-rs memory access** to inspect intermediate variables
-3. **Stream state arrays** when investigating state machine issues
-4. **Use JTAG breakpoints** for hard-to-catch bugs (don't rely on logging)
-5. **Validate with bit patterns** (flip bits, watch peripherals respond)
+**Maximum Observability Strategy:**
+Start with comprehensive logging of all relevant variables. RTT's non-blocking nature and 1-10 MB/s throughput enable logging 50-500+ variables @ 100 Hz without affecting timing.
+
+**Step-by-step:**
+1. **Log everything relevant** - All peripheral state, sensor data, FSM state, error flags
+2. **Structured defmt format** - Machine-parseable logs enable instant pattern detection
+3. **Sample at 100 Hz** - Fast enough to catch all behavior, slow enough to avoid saturation
+4. **Claude Code analyzes patterns** - Correlations reveal root cause immediately
+5. **Minimal iterations** - Usually fixed in 1-2 debug cycles vs many with minimal logging
 
 **Example: Debugging I2C driver autonomously**
 ```rust
-// Step 1: Add event counters (always on)
-static I2C_WRITES: AtomicU32 = AtomicU32::new(0);
-static I2C_READS: AtomicU32 = AtomicU32::new(0);
-static I2C_ERRORS: AtomicU32 = AtomicU32::new(0);
+// Log all I2C and system state every 10ms
+defmt::info!("i2c: status=0x{:04x} writes={} reads={} errors={} scl={} sda={} fifo={} state={}",
+    i2c_status, i2c_writes, i2c_reads, i2c_errors, scl_pin, sda_pin, fifo_level, fsm_state
+);
 
-// Step 2: Claude Code queries counter changes
-defmt::info!("i2c: writes={}, reads={}, errors={}", ...);
-
-// Step 3: If errors increasing, use probe-rs to check I2C state
-// (gdb) x/16xb 0x60013000  # I2C register dump
-
-// Step 4: Add state streaming for detailed analysis
-defmt::info!("i2c_state: {:?}", i2c_fsm_state);
+// Also log related sensor data
+defmt::info!("sensors: accel_x={} accel_y={} accel_z={} temp={} ready={}",
+    accel_x, accel_y, accel_z, temperature, sensor_ready
+);
 ```
+
+**Why this works for autonomous debugging:**
+- Claude sees all state changes instantly
+- Correlations appear naturally (button → i2c_error → sensor_fail)
+- No guessing which variable to inspect next
+- RTT non-blocking means timing is accurate (not masked by UART waits)
+- defmt structure lets Claude write regex parsers to extract patterns
+
+**Bottleneck considerations:**
+- JTAG bandwidth: 10+ MB/s (rarely the limit)
+- probe-rs parsing: ~1-10 MB/s (likely bottleneck)
+- USB 2.0: 12 Mbps = 1.5 MB/s (may limit USB-based probes)
+- Test actual limits with your hardware to find max sustainable variables
 
 ---
 
