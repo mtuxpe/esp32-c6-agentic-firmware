@@ -141,14 +141,45 @@ export MY_VAR="value"
 echo $MY_VAR  # Empty! Variable is gone
 ```
 
-**Use file-based state management:**
+This applies to **all** variables, including those from `source`:
+
+```bash
+# Step 1:
+source scripts/find-esp32-ports.sh  # Exports $USB_CDC_PORT
+
+# Step 2 (different Bash call):
+espflash flash --port $USB_CDC_PORT  # Variable is empty!
+```
+
+### Solutions for Variable Persistence
+
+#### Option 1: Consolidate into Single Bash Call (Recommended)
+
+```bash
+# GOOD: All in one call
+USB_PORT=$(ls /dev/cu.usbmodem* | head -1) && \
+espflash flash --port $USB_PORT target/.../main && \
+python3 read_uart.py $(ls /dev/cu.usbserial* | head -1) 5
+```
+
+#### Option 2: Re-detect in Each Step
+
+```bash
+# Step 1: Flash (detect port inline)
+espflash flash --port $(ls /dev/cu.usbmodem* | head -1) target/.../main
+
+# Step 2: Monitor (re-detect port)
+python3 read_uart.py $(ls /dev/cu.usbserial* | head -1) 5
+```
+
+#### Option 3: Use Files for State (Last Resort)
+
 ```bash
 # Step 1: Save to file
-echo "value" > /tmp/my_var.txt
+ls /dev/cu.usbmodem* | head -1 > /tmp/usb_port.txt
 
 # Step 2: Read from file
-MY_VAR=$(cat /tmp/my_var.txt)
-echo $MY_VAR  # Works!
+python3 read_uart.py $(cat /tmp/usb_port.txt) 5
 ```
 
 **Don't rely on `export` or `source`** - they don't work across tool invocations.
@@ -516,6 +547,219 @@ See `.claude/rtt-guide.md` for complete RTT reference documentation.
 
 ---
 
-**Last Updated:** 2025-11-12
-**Current Work:** Lesson 08 Complete (Structured Logging with defmt + RTT)
-**Next:** Lesson 09 (RTT Multi-Channel Exploration)
+## Hardware Lesson Development
+
+**CRITICAL: Always test on actual hardware as you develop. Don't write untested code.**
+
+### Incremental Development Workflow
+
+When creating hardware-interacting firmware, ALWAYS follow this sequence:
+
+#### Phase 1: Minimal Viable Test (5-10 minutes)
+1. **Start with template:** Copy `.claude/templates/uart_test_minimal.rs` to `src/bin/`
+2. **Configure pins:** Update GPIO pin numbers for your hardware
+3. **Build and flash:** `cargo build --bin uart_test_minimal`
+4. **Verify output:** Use `python3 read_uart.py <port> 5` to confirm UART works
+5. **Document working config:** Save pin numbers in uart-config.toml or README
+
+#### Phase 2: Core Functionality (15-30 minutes)
+1. Build on proven minimal test
+2. Add one feature at a time
+3. Test after each addition
+4. Don't proceed if tests fail
+
+#### Phase 3: Error Handling & Polish (10-15 minutes)
+1. Add bounds checking, safety features
+2. Improve error messages
+3. Write comprehensive tests
+
+### Why This Matters
+
+❌ **BAD (Don't do this):**
+```
+1. Write 300-line complex firmware with DMA, slots, safety checks
+2. Try to compile → API errors
+3. Fix API errors
+4. Flash → No output
+5. Debug for 30+ minutes to find GPIO pins were wrong
+```
+
+✅ **GOOD (Do this):**
+```
+1. Copy uart_test_minimal.rs (47 lines)
+2. Update GPIO pins
+3. Flash and verify output → 5 minutes
+4. Add one feature (e.g., single variable streaming) → 10 minutes
+5. Add multi-variable support → 10 minutes
+6. Add safety checks → 10 minutes
+Total: ~35 minutes with validated checkpoints
+```
+
+### Hardware Verification Checklist
+
+Before writing any complex firmware:
+
+- [ ] Know which GPIO pins are connected (ask user if unsure)
+- [ ] Have minimal test binary ready
+- [ ] Can see output on serial port
+- [ ] Verified correct TX/RX orientation (ESP TX → Adapter RX)
+- [ ] Documented working configuration
+
+### Pin Discovery Process
+
+If you don't know which pins to use:
+
+1. **Check documentation:**
+   - Lesson-specific README
+   - Previous working configurations
+   - ESP32-C6 datasheet
+
+2. **Ask user:**
+   - "Which GPIO pins are connected to your UART adapter?"
+   - "Is this the same setup as Lesson X?"
+
+3. **Systematic testing:**
+   - Try common pairs: GPIO16/17, GPIO23/15, GPIO4/5
+   - Test both orientations (TX/RX swapped)
+   - Use `scripts/test-uart-pins.sh` helper
+
+---
+
+## esp-hal 1.0.0 API Patterns
+
+**IMPORTANT: esp-hal 1.0.0 has breaking changes from pre-1.0 versions.**
+
+### UART Initialization
+
+❌ **OLD (pre-1.0) - Don't use:**
+```rust
+use esp_hal::{gpio::Io, uart::{Config, Uart}};
+
+let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+let uart = Uart::new_with_config(
+    peripherals.UART1,
+    Config::default().with_baudrate(115200),
+    io.pins.gpio23,
+    io.pins.gpio15,
+).unwrap();
+```
+
+✅ **NEW (1.0.0+) - Use this:**
+```rust
+use esp_hal::{
+    delay::Delay,
+    main,
+    uart::{Config as UartConfig, Uart},
+};
+
+let mut uart = Uart::new(peripherals.UART1, UartConfig::default())
+    .expect("Failed to init UART")
+    .with_tx(peripherals.GPIO23)
+    .with_rx(peripherals.GPIO15);
+
+// Writing to UART
+uart.write(b"Hello\n").ok();
+```
+
+### DMA Support
+
+**Status:** DMA APIs exist but are complex and not yet documented in simple lessons.
+
+**Recommendation:** Start with blocking UART (shown above) for initial lessons. Add DMA as advanced topic later.
+
+**Where to find examples:**
+- Official esp-hal repo: https://github.com/esp-rs/esp-hal/tree/main/examples
+- Check existing lessons: `grep -r "with_dma" lessons/*/src/`
+
+---
+
+## Serial Port Operations
+
+**CRITICAL: Never use blocking serial operations that can freeze the conversation.**
+
+### ✅ Recommended: Python Reader Script
+
+Always use the provided Python script for serial monitoring:
+
+```bash
+# Auto-terminates after 5 seconds
+python3 .claude/templates/read_uart.py /dev/cu.usbserial-FT58PFX4 5
+
+# Or use device discovery
+source scripts/find-esp32-ports.sh
+python3 .claude/templates/read_uart.py $FTDI_PORT 5
+```
+
+**Why this works:**
+- Guaranteed termination (no hanging)
+- Cross-platform (macOS, Linux, Windows)
+- Proper error handling
+- Clean resource cleanup
+
+### ❌ Anti-Patterns (Don't use these)
+
+```bash
+# BAD: Blocks forever, no timeout
+cat /dev/cu.usbmodem1101
+
+# BAD: Background process doesn't auto-terminate
+cat /dev/cu.usbmodem1101 &
+
+# BAD: Requires interactive TTY, fails in automation
+espflash monitor /dev/cu.usbmodem1101
+
+# BAD: macOS doesn't have GNU timeout by default
+timeout 3 cat /dev/cu.usbserial-FT58PFX4
+```
+
+### Serial Port Cleanup
+
+If you need to clean up stuck processes:
+
+```bash
+# Kill any hanging cat/espflash processes
+pkill -f "cat /dev/cu\." || true
+pkill -f "espflash monitor" || true
+pkill -f "screen /dev/cu\." || true
+```
+
+---
+
+## Device Discovery
+
+**Don't hardcode serial port paths** - they change when devices are unplugged/replugged.
+
+### Automatic Port Detection
+
+```bash
+# Use the discovery script
+source scripts/find-esp32-ports.sh
+
+# Variables are now exported:
+# $USB_CDC_PORT - ESP32 USB-JTAG (for flashing/debugging)
+# $FTDI_PORT    - FTDI UART (for data streaming)
+
+# Use in commands:
+espflash flash --port $USB_CDC_PORT target/.../main
+python3 read_uart.py $FTDI_PORT 5
+```
+
+### Manual Detection
+
+If discovery script doesn't work:
+
+```bash
+# macOS:
+ls /dev/cu.usbmodem*    # ESP32 USB-JTAG
+ls /dev/cu.usbserial*   # FTDI UART
+
+# Linux:
+ls /dev/ttyACM*         # ESP32 USB-JTAG
+ls /dev/ttyUSB*         # FTDI UART
+```
+
+---
+
+**Last Updated:** 2025-11-14
+**Current Work:** Lesson 08 (UART + GDB Tandem Debugging)
+**Next:** Hardware debugging infrastructure improvements
