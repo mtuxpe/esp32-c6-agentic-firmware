@@ -7,7 +7,7 @@
 //! **Hardware:**
 //! - ESP32-C6 development board
 //! - USB-JTAG for GDB debugging
-//! - UART on GPIO16 (TX) and GPIO17 (RX) for streaming
+//! - UART on GPIO23 (TX) and GPIO15 (RX) for streaming
 //!
 //! **What You'll Learn:**
 //! - Memory-safe pointer-based variable streaming
@@ -183,18 +183,18 @@ static mut STREAM_SLOTS: [StreamSlot; 4] = [
 fn main() -> ! {
     println!("=== Lesson 08 - Phase 1: Memory-Safe Variable Streaming ===");
     println!("Hardware: ESP32-C6");
-    println!("UART: TX=GPIO17, RX=GPIO16");
+    println!("UART: TX=GPIO23, RX=GPIO15");
     println!();
 
     // Initialize peripherals
     let peripherals = esp_hal::init(esp_hal::Config::default());
     let delay = Delay::new();
 
-    // Configure UART1 on GPIO17/16 at 115200 baud (swapped)
+    // Configure UART1 on GPIO23/15 at 115200 baud
     let mut uart = Uart::new(peripherals.UART1, UartConfig::default())
         .expect("Failed to init UART")
-        .with_tx(peripherals.GPIO17)
-        .with_rx(peripherals.GPIO16);
+        .with_tx(peripherals.GPIO23)
+        .with_rx(peripherals.GPIO15);
 
     println!("UART initialized at 115200 baud");
     println!("Starting variable streaming...");
