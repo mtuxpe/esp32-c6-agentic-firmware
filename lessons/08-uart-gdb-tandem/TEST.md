@@ -1,213 +1,289 @@
-# Lesson 08: USB CDC Streaming - Test Specification
+# Lesson 08 Test Specification
+
+**Lesson:** UART + GDB Tandem Debugging
+**Type:** Hardware validation required
+**Duration:** ~15-20 minutes
+
+---
 
 ## Hardware Setup
 
-**Requirements:**
+### Required Equipment
 - ESP32-C6 development board
-- USB-C cable (data-capable)
-- Computer with Python 3.7+
+- USB-C cable (for GDB via USB-JTAG)
+- FTDI USB-to-UART adapter
+- 3x jumper wires
 
-**Wiring:**
-- USB-C cable from computer to ESP32-C6 USB port
-- No external components needed
+### Wiring
 
-## Software Setup
+| ESP32-C6 | FTDI Adapter |
+|----------|--------------|
+| GPIO23 (TX) | RX |
+| GPIO15 (RX) | TX |
+| GND | GND |
 
-```bash
-# Install Python dependencies
-pip install pyserial matplotlib
+**Verification:** Run `../../scripts/test-uart-pins.sh 23 15 5` to confirm wiring
 
-# Build firmware
-cd lessons/08-usb-cdc-streaming
-cargo build --release
-```
+---
 
-## Test Procedures
+## Automated Tests
 
 ### Test 1: Build Verification
 
-**Goal:** Verify firmware compiles without errors
-
 ```bash
 cargo build --release
 ```
 
-**Expected:**
-- ✅ Build succeeds
-- ✅ No warnings or errors
-- ✅ Binary created
+**Expected:** Clean build with no errors
+**Pass Criteria:** Exit code 0, binary created in `target/riscv32imac-unknown-none-elf/release/main`
 
 **Result:** ☐ PASS ☐ FAIL
 
 ---
 
-### Test 2: Flash and Boot
-
-**Goal:** Verify firmware flashes and boots
+### Test 2: Flash to Hardware
 
 ```bash
-cargo run --release
+source ../../scripts/find-esp32-ports.sh
+espflash flash --port $USB_CDC_PORT target/riscv32imac-unknown-none-elf/release/main
 ```
 
-**Expected output:**
-```
-BOOT|version=1.0.0|chip=ESP32-C6
-STATUS|msg=Initialization complete|ready=true
-```
-
-**Verification:**
-- ✅ Firmware uploads successfully
-- ✅ BOOT message appears immediately
-- ✅ STATUS message confirms initialization
+**Expected:** Successful flash
+**Pass Criteria:** "Flashing has completed!" message, no errors
 
 **Result:** ☐ PASS ☐ FAIL
 
 ---
 
-### Test 3: Structured Output Format
+### Test 3: UART Stream Verification
 
-**Goal:** Verify all message types are correctly formatted
+```bash
+# Run for 10 seconds
+python3 ../../.claude/templates/read_uart.py $FTDI_PORT 10
+```
 
-**Monitor output for 10 seconds and verify:**
+**Expected Output:**
+```
+=== Variable Streaming System ===
+Slot 0: &sensor_1 = 0x3FC8ABCD -> 100
+Slot 1: &sensor_2 = 0x3FC8ABD0 -> 200
+Slot 2: &counter  = 0x3FC8ABD4 -> 0
+Slot 3: &state    = 0x3FC8ABD8 -> 1
 
-- ✅ I2C messages: `I2C|addr=0xXX|op=Read|bytes=N|status=Success|ts=NNNN`
-- ✅ GPIO messages: `GPIO|pin=N|state=Low|ts=NNNN`
-- ✅ SENSOR messages: `SENSOR|id=N|value=NNNN|unit=centi-C|ts=NNNN`
-- ✅ HEARTBEAT messages: `HEARTBEAT|count=N|ts=NNNN`
+Stream: s0=100 s1=200 s2=0 s3=1
+Stream: s0=101 s1=200 s2=1 s3=1
+Stream: s0=102 s1=200 s2=2 s3=1
+```
 
-**Verification:**
-- ✅ All message types present
-- ✅ Pipe-delimited format correct
-- ✅ Field names and values present
-- ✅ Timestamps increment
+**Pass Criteria:**
+- ✅ Header appears once
+- ✅ Stream lines appear every ~100ms
+- ✅ Counter values increment (s2)
+- ✅ No garbled output
 
 **Result:** ☐ PASS ☐ FAIL
 
 ---
 
-### Test 4: Python Parser
+## Interactive Tests
 
-**Goal:** Verify Python parser can decode all message types
+### Test 4: GDB Connection
 
+**Steps:**
+1. Flash firmware (if not already done)
+2. In new terminal:
 ```bash
-# Find USB port
-ls /dev/cu.usbmodem*
-
-# Run parser (replace with your port)
-python3 stream_parser.py /dev/cu.usbmodem2101
-```
-
-**Expected output:**
-```
-📡 Listening on /dev/cu.usbmodem2101 @ 115200 baud
-Press Ctrl+C to stop
-
-🚀 BOOT: ESP32-C6 v1.0.0
-✓ STATUS: Initialization complete (ready=true)
-I2C: addr=0x68 op=Read bytes=6 status=Success
-GPIO: pin=8 ⚪ Low
-📊 SENSOR 1: 2530 centi-C
-💓 Heartbeat #1
-```
-
-**Verification:**
-- ✅ Parser connects successfully
-- ✅ All message types parsed and displayed
-- ✅ Emojis render correctly
-- ✅ No parsing errors
-
-**Result:** ☐ PASS ☐ FAIL
-
----
-
-### Test 5: Statistics Mode
-
-**Goal:** Verify statistics tracking works
-
-```bash
-python3 stream_parser.py /dev/cu.usbmodem2101 --stats
-```
-
-**Run for 10 seconds, then Ctrl+C**
-
-**Expected:**
-- ✅ Statistics displayed on each heartbeat
-- ✅ Message counts increment
-- ✅ Rate calculation reasonable (~10-20 msg/s)
-- ✅ Throughput calculation present
-- ✅ Final statistics printed on exit
-
-**Result:** ☐ PASS ☐ FAIL
-
----
-
-### Test 6: CSV Logging
-
-**Goal:** Verify CSV export works
-
-```bash
-python3 stream_parser.py /dev/cu.usbmodem2101 --csv test_output.csv
-```
-
-**Run for 10 seconds, then Ctrl+C**
-
-**Verification:**
-```bash
-head -20 test_output.csv
-wc -l test_output.csv
+riscv32-esp-elf-gdb target/riscv32imac-unknown-none-elf/release/main
+(gdb) target remote :3333
+(gdb) continue
 ```
 
 **Expected:**
-- ✅ CSV file created
-- ✅ Contains header: `timestamp,type,data`
-- ✅ Data rows present
-- ✅ Timestamps in ISO format
-- ✅ Line count > 100 (for 10 seconds)
+- GDB connects without errors
+- Firmware continues running
+- UART stream continues in background
+
+**Pass Criteria:**
+- ✅ GDB shows "Continuing"
+- ✅ No connection errors
+- ✅ UART terminal still receiving data
 
 **Result:** ☐ PASS ☐ FAIL
 
 ---
 
-### Test 7: Performance Test (60 seconds)
+### Test 5: Variable Injection
 
-**Goal:** Verify sustained throughput and stability
-
-```bash
-# Run for 60 seconds
-timeout 60 python3 stream_parser.py /dev/cu.usbmodem2101 --csv perf_test.csv --stats
-
-# Analyze results
-wc -l perf_test.csv
-ls -lh perf_test.csv
+**Steps:**
+```gdb
+(gdb) interrupt
+(gdb) print sensor_1
+(gdb) set sensor_1 = 9999
+(gdb) continue
 ```
 
-**Expected results:**
-- ✅ Runs for 60 seconds without errors
-- ✅ No disconnections
-- ✅ Consistent message rate (~10-20 msg/s)
-- ✅ Throughput 1-3 KB/s
-- ✅ Final message count > 600
+**Watch UART terminal**
+
+**Expected:**
+- UART shows `s0=9999` in next stream update
+- Stream continues normally
+
+**Pass Criteria:**
+- ✅ Injected value appears in UART within 1 second
+- ✅ No crashes or errors
 
 **Result:** ☐ PASS ☐ FAIL
 
 ---
 
-### Test 8: Real-Time Plotting (Optional)
+### Test 6: Pointer Redirection (Advanced)
 
-**Goal:** Verify matplotlib visualization works
+**Steps:**
+```gdb
+(gdb) interrupt
+(gdb) print &counter
+$1 = (u32 *) 0x3FC8XXXX  # Note the address
 
-```bash
-python3 plot_sensor_data.py /dev/cu.usbmodem2101
+(gdb) set SLOTS[0].ptr = $1
+(gdb) continue
+```
+
+**Watch UART terminal**
+
+**Expected:**
+- Slot 0 now streams counter value
+- Counter increments visible in s0
+
+**Pass Criteria:**
+- ✅ Slot redirection works
+- ✅ Values are correct
+- ✅ No crashes
+
+**Result:** ☐ PASS ☐ FAIL
+
+---
+
+### Test 7: Memory Safety Validation
+
+**Steps:**
+```gdb
+(gdb) interrupt
+# Try invalid address (outside RAM)
+(gdb) set SLOTS[0].ptr = 0x00000000
+(gdb) continue
+```
+
+**Watch UART terminal**
+
+**Expected:**
+- Firmware detects invalid pointer
+- Error message or safe fallback
+- Firmware does NOT crash
+
+**Pass Criteria:**
+- ✅ No panic or reset
+- ✅ Graceful error handling
+
+**Result:** ☐ PASS ☐ FAIL
+
+---
+
+### Test 8: Hardware Watchpoint
+
+**Steps:**
+```gdb
+(gdb) interrupt
+(gdb) watch counter
+(gdb) continue
 ```
 
 **Expected:**
-- ✅ Plot window opens
-- ✅ Data appears in real-time
-- ✅ X-axis: time, Y-axis: sensor value
-- ✅ Plot updates smoothly
-- ✅ No lag or freezing
+- GDB stops when counter changes
+- Shows old and new values
 
-**Result:** ☐ PASS ☐ FAIL ☐ SKIPPED
+**Pass Criteria:**
+- ✅ Watchpoint triggers correctly
+- ✅ Can resume with `continue`
+
+**Result:** ☐ PASS ☐ FAIL
+
+---
+
+## Performance Tests
+
+### Test 9: UART Throughput
+
+**Monitor UART for 60 seconds, count messages:**
+
+```bash
+python3 ../../.claude/templates/read_uart.py $FTDI_PORT 60 | grep "Stream:" | wc -l
+```
+
+**Expected:** ~600 lines (10 Hz × 60 seconds)
+
+**Pass Criteria:**
+- ✅ Message rate 8-12 Hz (allows jitter)
+- ✅ No dropped frames
+- ✅ Consistent timing
+
+**Result:** ☐ PASS ☐ FAIL
+
+---
+
+### Test 10: GDB Interrupt/Resume Cycle
+
+**Stress test: Interrupt and resume 10 times**
+
+```gdb
+(gdb) interrupt
+(gdb) continue
+# Repeat 10x
+```
+
+**Expected:**
+- Each interrupt succeeds
+- Each resume restores UART stream
+- No degradation over time
+
+**Pass Criteria:**
+- ✅ All 10 cycles complete
+- ✅ UART stream remains stable
+- ✅ No memory leaks or crashes
+
+**Result:** ☐ PASS ☐ FAIL
+
+---
+
+## Troubleshooting
+
+### No UART Output
+
+**Check:**
+1. Wiring (use `test-uart-pins.sh`)
+2. Correct FTDI port: `ls $FTDI_PORT`
+3. Baud rate: 115200 (default)
+4. Firmware actually flashed
+
+### GDB Connection Fails
+
+**Check:**
+1. USB-JTAG cable connected
+2. Port not in use: `ps aux | grep openocd`
+3. espflash can connect: `espflash board-info --port $USB_CDC_PORT`
+
+### Garbled UART
+
+**Check:**
+1. Only one process reading port
+2. Baud rate matches (115200)
+3. UART adapter drivers installed
+
+### Variable Injection Not Working
+
+**Check:**
+1. Using debug build or release with symbols
+2. Variable names match code exactly
+3. GDB actually interrupted firmware
 
 ---
 
@@ -216,13 +292,15 @@ python3 plot_sensor_data.py /dev/cu.usbmodem2101
 | Test | Expected | Status |
 |------|----------|--------|
 | 1. Build | Compiles | ☐ PASS ☐ FAIL |
-| 2. Flash & Boot | BOOT message | ☐ PASS ☐ FAIL |
-| 3. Format | All types present | ☐ PASS ☐ FAIL |
-| 4. Parser | Decodes all | ☐ PASS ☐ FAIL |
-| 5. Statistics | Tracking works | ☐ PASS ☐ FAIL |
-| 6. CSV | Export works | ☐ PASS ☐ FAIL |
-| 7. Performance | 60s sustained | ☐ PASS ☐ FAIL |
-| 8. Plotting | Visualization | ☐ PASS ☐ FAIL ☐ SKIP |
+| 2. Flash | Success | ☐ PASS ☐ FAIL |
+| 3. UART Stream | Visible output | ☐ PASS ☐ FAIL |
+| 4. GDB Connection | Connects | ☐ PASS ☐ FAIL |
+| 5. Variable Injection | Works | ☐ PASS ☐ FAIL |
+| 6. Pointer Redirect | Works | ☐ PASS ☐ FAIL |
+| 7. Memory Safety | Enforced | ☐ PASS ☐ FAIL |
+| 8. Watchpoint | Triggers | ☐ PASS ☐ FAIL ☐ SKIP |
+| 9. Throughput | 10 Hz | ☐ PASS ☐ FAIL ☐ SKIP |
+| 10. Stress Test | Stable | ☐ PASS ☐ FAIL ☐ SKIP |
 
 ## Pass Criteria
 
@@ -230,9 +308,26 @@ python3 plot_sensor_data.py /dev/cu.usbmodem2101
 - Tests 1-7
 
 **Optional tests:**
-- Test 8 (plotting)
+- Tests 8-10 (advanced features)
 
 **Overall status:** PASS if all mandatory tests pass
+
+---
+
+## Expected Test Duration
+
+| Test | Duration |
+|------|----------|
+| Build & Flash | 2-3 min |
+| UART Verification | 1-2 min |
+| GDB Connection | 1-2 min |
+| Variable Injection | 2-3 min |
+| Pointer Redirection | 3-5 min |
+| Memory Safety | 2-3 min |
+| Performance | 3-5 min |
+| **Total** | **15-20 min** |
+
+---
 
 ## Notes
 
@@ -243,4 +338,4 @@ python3 plot_sensor_data.py /dev/cu.usbmodem2101
 **Tested by:** ________________
 **Date:** ________________
 **Hardware:** ESP32-C6 DevKit
-**Software:** esp-hal 1.0.0, Python 3.X
+**Software:** esp-hal 1.0.0

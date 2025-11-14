@@ -1,194 +1,289 @@
-# Lesson 08: USB CDC High-Speed Data Streaming
+# Lesson 08: UART + GDB Tandem Debugging
 
-Stream structured sensor data at high speed using USB CDC (virtual serial port) for real-time monitoring and analysis.
+Stream variables in real-time over UART while simultaneously controlling firmware behavior with GDB - no recompilation needed.
 
 ## Learning Objectives
 
-- High-speed USB CDC streaming (up to 1.5 MB/s)
-- Structured logging with machine-parseable format
-- Real-time data visualization with Python
-- Performance analysis and bandwidth optimization
+- **Pointer-based variable streaming** - GDB redirects stream slots to any memory address
+- **Memory safety in embedded** - Bounds checking and alignment validation
+- **GDB + UART tandem workflow** - Continuous logging meets interactive control
+- **Zero-recompilation debugging** - Change what's streamed without rebuilding firmware
 
 ## Hardware Requirements
 
 - ESP32-C6 development board
-- USB-C cable (for power and data)
+- USB cable (for GDB via USB-JTAG)
+- FTDI USB-to-UART adapter (for streaming)
+- Jumper wires
 
-**No external components needed** - uses built-in USB CDC
+## Wiring
+
+Connect UART1 to FTDI adapter:
+
+| ESP32-C6 | FTDI Adapter |
+|----------|--------------|
+| GPIO23 (TX) | RX |
+| GPIO15 (RX) | TX |
+| GND | GND |
+
+**Note:** GPIO pins can be changed in `src/bin/main.rs` (lines 24-25)
 
 ## What You'll Learn
 
-This lesson demonstrates:
-- Structured logging using pipe-delimited format
-- Custom Display trait implementations for data types
-- USB CDC streaming performance characteristics
-- Python parsing and real-time visualization
-- Bandwidth budgeting and throughput analysis
+### The Traditional Debugging Dilemma
 
-## Build & Flash
+**Option A: UART Logging**
+- ✅ Continuous output
+- ✅ See real-time behavior
+- ❌ No interaction
+- ❌ Limited to hardcoded logs
+
+**Option B: GDB Debugging**
+- ✅ Full control
+- ✅ Inspect any variable
+- ❌ Firmware paused
+- ❌ Can't see continuous behavior
+
+### Our Solution: Use Both!
+
+**UART Stream (Continuous) + GDB Control (Interactive)**
+
+- Watch 4 configurable variable slots streaming over UART
+- GDB redirects slots to any variable in memory
+- Inject test values and see immediate UART response
+- Never stop firmware execution
+
+## Building and Flashing
 
 ```bash
-cd lessons/08-usb-cdc-streaming
+# Auto-detect ports
+source ../../scripts/find-esp32-ports.sh
 
-# Build
+# Build and flash
 cargo build --release
+espflash flash --port $USB_CDC_PORT target/riscv32imac-unknown-none-elf/release/main
 
-# Flash and monitor
-cargo run --release
+# In another terminal, monitor UART output
+python3 ../../.claude/templates/read_uart.py $FTDI_PORT 30
 ```
 
 ## Expected Output
 
-When you flash and run this lesson, you should see:
-
 ```
-BOOT|version=1.0.0|chip=ESP32-C6
-STATUS|msg=Initialization complete|ready=true
-I2C|addr=0x68|op=Read|bytes=6|status=Success|ts=10
-GPIO|pin=8|state=Low|ts=250
-SENSOR|id=1|value=2530|unit=centi-C|ts=500
-HEARTBEAT|count=1|ts=1000
-I2C|addr=0x68|op=Read|bytes=6|status=Success|ts=1010
+=== Variable Streaming System ===
+Slot 0: &sensor_1 = 0x3FC8ABCD -> 100
+Slot 1: &sensor_2 = 0x3FC8ABD0 -> 200
+Slot 2: &counter  = 0x3FC8ABD4 -> 0
+Slot 3: &state    = 0x3FC8ABD8 -> 1
+
+Stream: s0=100 s1=200 s2=0 s3=1
+Stream: s0=101 s1=200 s2=1 s3=1
+Stream: s0=102 s1=200 s2=2 s3=1
 ...
 ```
 
-## Python Parser
+## GDB Tandem Debugging Workflow
 
-Parse and visualize streaming data with the included Python tools.
-
-### Installation
+### 1. Start GDB Session
 
 ```bash
-pip install pyserial matplotlib
+# Flash firmware first (see above)
+
+# Attach GDB
+riscv32-esp-elf-gdb target/riscv32imac-unknown-none-elf/release/main
+(gdb) target remote :3333
+(gdb) continue
 ```
 
-### Basic Usage
+**UART stream continues in background!**
 
-```bash
-# Real-time parsing
-python3 stream_parser.py /dev/cu.usbmodem2101
+### 2. Redirect Stream Slots
 
-# Statistics mode
-python3 stream_parser.py /dev/cu.usbmodem2101 --stats
+```gdb
+# Stop firmware temporarily
+(gdb) interrupt
 
-# Log to CSV
-python3 stream_parser.py /dev/cu.usbmodem2101 --csv output.csv
+# Find address of a variable you want to stream
+(gdb) print &button_count
+$1 = (u32 *) 0x3FC8AC00
 
-# Real-time plotting
-python3 plot_sensor_data.py /dev/cu.usbmodem2101
+# Redirect slot 0 to stream button_count
+(gdb) set SLOTS[0].ptr = 0x3FC8AC00
+
+# Resume - UART now shows button_count in slot 0!
+(gdb) continue
 ```
 
-## Performance
+### 3. Inject Test Values
 
-### Bandwidth Budget
-
-- **USB CDC capacity:** 1.5 MB/s (USB Full Speed)
-- **Typical message size:** 60 bytes
-- **Sustainable rate:** 1000+ messages/second
-- **Throughput at 100 Hz:** ~6 KB/s (0.4% of capacity)
-
-### Tested Performance
-
-| Loop Rate | Messages/sec | Throughput | CPU Load |
-|-----------|--------------|------------|----------|
-| 100 Hz | ~20 | 1-3 KB/s | Low |
-| 1000 Hz | ~200 | 10-30 KB/s | Moderate |
-
-**Plenty of headroom for additional sensors and higher sample rates.**
-
-## Code Structure
-
-### Firmware (`src/`)
-
-- `lib.rs` - Structured data types with Display traits
-  - `I2cTransaction` - I2C bus events
-  - `GpioEvent` - GPIO state changes
-  - `SensorReading` - Generic sensor data
-  - `BootInfo` - System startup info
-
-- `bin/main.rs` - Main firmware
-  - USB CDC initialization (automatic with esp-println)
-  - Event simulation loop
-  - Structured logging output
-
-### Python Tools
-
-- `stream_parser.py` - Parse and display streaming data
-- `plot_sensor_data.py` - Real-time plotting
-
-## Key Concepts
-
-### Structured Logging Format
-
-All messages follow this format:
-```
-TYPE|field1=val1|field2=val2|...
+```gdb
+# Test edge case without hardware
+(gdb) interrupt
+(gdb) set temperature = 150
+(gdb) continue
+# UART instantly shows overheat response
 ```
 
-**Benefits:**
-- Machine-parseable (easy for Python/scripts)
-- Human-readable (debugging friendly)
-- Self-documenting (field names included)
-- Extensible (add fields without breaking parsers)
+### 4. Hardware Watchpoints
 
-### Custom Display Traits
+```gdb
+# Break when variable changes
+(gdb) watch button_count
+(gdb) continue
+# Stops automatically when button_count changes
+```
+
+## Real-World Use Cases
+
+### 1. Testing Edge Cases
+
+**Scenario:** Test temperature sensor at 150°C
+
+**Traditional:** Heat gun + fire hazard + slow iteration
+**Our Approach:**
+```gdb
+(gdb) set TEMPERATURE = 150
+(gdb) continue
+# UART shows response immediately
+```
+
+### 2. Debugging State Machines
+
+**Scenario:** Bug appears after 10,000 button presses
+
+**Traditional:** Click 10,000 times
+**Our Approach:**
+```gdb
+(gdb) set button_count = 9999
+(gdb) continue
+# UART shows bug condition
+```
+
+### 3. Performance Tuning
+
+**Scenario:** Find optimal PID gains
+
+**Traditional:** Recompile 20 times with different constants
+**Our Approach:**
+```gdb
+(gdb) set kp = 0.5
+(gdb) set ki = 0.1
+(gdb) set kd = 0.05
+(gdb) continue
+# Watch UART for stability
+```
+
+## Memory Safety Features
+
+This lesson demonstrates production-grade memory safety:
 
 ```rust
-impl fmt::Display for I2cTransaction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "I2C|addr=0x{:02x}|op={:?}|...", ...)
-    }
+// Bounds checking
+if ptr < RAM_START || ptr >= RAM_END {
+    return Err(MemoryError::OutOfBounds);
+}
+
+// Alignment validation
+if ptr % align_of::<T>() != 0 {
+    return Err(MemoryError::Misaligned);
+}
+
+// Type safety
+match slot.var_type {
+    VarType::I32 => { /* safe cast to i32 */ }
+    VarType::U32 => { /* safe cast to u32 */ }
+    // ...
 }
 ```
 
-**Advantage:** `println!("{}", event)` automatically formats correctly
+## Code Structure
 
-### USB CDC vs RTT
+### Firmware (`src/bin/main.rs`)
 
-| Feature | USB CDC | RTT |
-|---------|---------|-----|
-| Speed | 1.5 MB/s | 1-10 MB/s |
-| Setup | USB cable only | JTAG probe required |
-| Compatibility | Universal | Requires probe-rs |
-| Blocking | Minimal | Non-blocking |
-| **Status** | ✅ Works now | ❌ macOS issues |
+- **Memory Safety** (lines 38-42): RAM bounds and alignment constants
+- **VarType Enum** (lines 46-53): Type-safe variable types
+- **VariableSlot** (lines 55-68): Pointer + type + metadata
+- **Validation** (lines 70-115): Bounds and alignment checking
+- **Streaming Loop** (lines 200+): Continuous UART output
+
+### Key Components
+
+1. **Variable Slots** - 4 configurable pointers to any variable
+2. **Type System** - I32, U32, F32, BOOL with safe casting
+3. **Memory Validation** - Bounds checking, alignment, null detection
+4. **UART Streaming** - Continuous output at 10 Hz
+5. **GDB Interface** - Direct memory access to slots
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| No serial output | Check USB cable supports data (not just power) |
-| Parser can't find port | Run `ls /dev/cu.usbmodem*` to find correct port |
-| Garbled output | Ensure baudrate matches (115200) |
-| Parser crashes | Install pyserial: `pip install pyserial` |
+### No UART output
+
+1. Verify wiring: ESP32 TX → FTDI RX, GND → GND
+2. Test pins: `../../scripts/test-uart-pins.sh 23 15 5`
+3. Check baud rate: 115200 (default)
+
+### GDB can't connect
+
+1. Flash firmware first
+2. Check USB-JTAG cable connected
+3. Try: `espflash monitor --chip esp32c6`
+
+### Garbled UART output
+
+1. Verify baud rate matches (115200)
+2. Check only one program is reading the port
+3. Try lower streaming frequency in code
+
+### Can't redirect slots in GDB
+
+1. Ensure firmware is built with debug symbols: `--release` still includes them
+2. Use correct slot index: `SLOTS[0]`, `SLOTS[1]`, `SLOTS[2]`, `SLOTS[3]`
+3. Check address is in valid RAM range: `0x3FC80000 - 0x3FD00000`
+
+## Performance
+
+- **UART Bandwidth:** 115200 baud = ~14 KB/s
+- **Stream Rate:** 10 Hz (configurable)
+- **Message Size:** ~60 bytes per update
+- **Throughput:** ~600 bytes/sec (4% of capacity)
+
+**Plenty of headroom for additional variables and higher rates.**
 
 ## Extending This Lesson
 
-**Add real sensors:**
-- Replace simulated data with actual I2C/SPI sensors
-- Use real GPIO interrupts
-- Add ADC readings
+**Add more variable types:**
+```rust
+enum VarType {
+    I32, U32, F32, BOOL,
+    I16, U16, I8, U8,  // Add these
+}
+```
 
-**Increase complexity:**
-- Add more data types (SPI, UART, ADC)
-- Implement ring buffer for burst data
-- Add data compression
-- Create multi-channel streams
+**Increase slot count:**
+```rust
+const MAX_SLOTS: usize = 8;  // Was 4
+```
 
-**Analysis tools:**
-- Export to time-series database
-- Create Grafana dashboard
-- Add statistical analysis
-- Implement anomaly detection
+**Add DMA for higher throughput:**
+- See `LESSON_08_REDESIGN.md` for DMA implementation plan
+
+**Create GDB Python scripts:**
+```python
+# custom_commands.py
+class StreamVariable(gdb.Command):
+    def invoke(self, arg, from_tty):
+        # Automatically redirect slot to variable
+```
 
 ## Next Steps
 
-- **Lesson 09:** (TBD - depends on RTT status)
-- Experiment: Add your own sensors and data types
-- Challenge: Achieve 1000 Hz sustained streaming with multiple sensors
+- **Lesson 09:** (TBD)
+- **Challenge:** Stream 10 variables at 100 Hz without dropping frames
+- **Advanced:** Implement circular buffer with DMA for zero-copy streaming
 
 ## References
 
-- [ESP32-C6 USB Serial JTAG](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-guides/usb-serial-jtag-console.html)
-- [esp-println Documentation](https://docs.esp-rs.org/esp-println/)
-- [USB CDC Class Specification](https://www.usb.org/document-library/class-definitions-communication-devices-12)
+- [GDB Manual](https://sourceware.org/gdb/current/onlinedocs/gdb/)
+- [esp-hal UART](https://docs.esp-rs.org/esp-hal/esp-hal/uart/)
+- [ESP32-C6 Memory Map](https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf)
+- [RISC-V GDB Guide](https://github.com/riscv-collab/riscv-gnu-toolchain)
