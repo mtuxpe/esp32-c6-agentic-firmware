@@ -76,9 +76,11 @@ python3 .claude/templates/read_uart.py /dev/cu.usbserial-FT58PFX4 5
 - **Lesson 01**: [Button + NeoPixel](./lessons/01-button-neopixel/)
 - **Lesson 02**: [Task Scheduler](./lessons/02-task-scheduler/)
 - **Lesson 03**: [I2C MPU9250 Sensor](./lessons/03-mpu9250/)
+- **Lesson 04**: [Static Color Navigator](./lessons/04-static-color-navigator/)
+- **Lesson 05**: [Unit and Integration Testing](./lessons/05-unit-and-integration-testing/)
+- **Lesson 06**: [UART Terminal](./lessons/06-uart-terminal/)
 - **Lesson 07**: [GDB Debugging](./lessons/07-gdb-debugging/)
 - **Lesson 08**: [UART + GDB Tandem](./lessons/08-uart-gdb-tandem/)
-- Full roadmap: [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)
 
 ---
 

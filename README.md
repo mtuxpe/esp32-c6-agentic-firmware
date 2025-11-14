@@ -28,12 +28,7 @@ Progressive tutorials from basic GPIO to advanced debugging:
 
 **Status:** Lessons 01, 07, and 08 are fully tested and documented with hardware validation.
 
-**Future Explorations** (advanced/incomplete work in `future/` directory):
-- defmt + RTT structured logging
-- RTT multi-channel autonomous debugging
-- See [future/README.md](./future/README.md) for details
-
-See [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md) for the full curriculum.
+Each lesson builds on previous concepts progressively. Start with Lesson 01 and work sequentially through the curriculum.
 
 ## Quick Start
 
@@ -58,19 +53,28 @@ cargo run --release  # Flash to ESP32-C6
 
 See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
 
+## Rust Toolchain
+
+This project uses Rust nightly. Each lesson includes a `rust-toolchain.toml` file that specifies the exact nightly version tested with that lesson.
+
+If you encounter build errors:
+1. Check the lesson's `rust-toolchain.toml` for the expected toolchain version
+2. Run `rustup show` to verify your active toolchain
+3. The toolchain will be automatically selected when you build from within a lesson directory
+
+**Note:** esp-hal and its dependencies evolve rapidly. If a lesson fails to build with the latest nightly, the pinned version in `rust-toolchain.toml` ensures reproducible builds.
+
 ## Debugging
 
 This project demonstrates multiple debugging approaches:
 
 - **GDB + OpenOCD** (Lesson 07) - Hardware debugging with breakpoints, watchpoints, and variable inspection
 - **UART Variable Streaming** (Lesson 08) - Real-time variable monitoring with GDB tandem debugging
-- **RTT Tools** (Future work) - See `future/` directory for RTT exploration and tools
 
 ## Documentation
 
-- **[docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)** - Full curriculum overview
-- **[future/README.md](./future/README.md)** - Advanced exploration and RTT tools
 - **[QUICKSTART.md](./QUICKSTART.md)** - Quick start guide
+- **[CLAUDE.md](./CLAUDE.md)** - Guidelines for Claude Code development
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
 
@@ -120,11 +124,6 @@ lessons/
 
 scripts/
 ├── find-esp32-ports.sh       # Auto port detection
-└── ...
-
-docs/
-├── LESSON_PLAN.md            # Full curriculum
-├── DEBUGGING_INFRASTRUCTURE.md
 └── ...
 ```
 
