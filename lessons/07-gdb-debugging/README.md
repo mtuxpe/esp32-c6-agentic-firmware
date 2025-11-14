@@ -1052,7 +1052,7 @@ After testing, we'll create these slash commands:
 
 ---
 
-**Ready to build a self-debugging system!** 🤖🔧
+Ready to build a self-debugging system.
 
 
 ---
@@ -1263,6 +1263,6 @@ When you find yourself doing the same manual steps repeatedly:
 
 ---
 
-**You now have a complete debugging workflow for embedded Rust development!** 🎉
+You now have a complete debugging workflow for embedded Rust development.
 
 *Note: For ideas on future slash commands and workflow improvements, see `IDEAS.md` in the project root.*

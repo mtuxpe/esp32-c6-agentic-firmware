@@ -62,10 +62,10 @@ EOF
 ### Step 2: Analyze Boot Messages
 
 Look for:
-- ✅ Peripheral initialization messages
-- ❌ Panic messages or stack traces
-- ⚠️ Warnings or errors
-- 🔄 Where execution stopped
+- Peripheral initialization messages
+- Panic messages or stack traces
+- Warnings or errors
+- Where execution stopped
 
 ### Step 3: Use probe-rs for Live Debugging
 
@@ -259,7 +259,7 @@ cargo build && espflash flash --port /dev/cu.usbmodem2101 target/riscv32imac-unk
 ```
 
 **Step 6 - Verify**:
-Press button → LED toggles once → ✅ Fixed!
+Press button → LED toggles once → Fixed!
 
 ## Autonomous Debugging Pattern for Claude Code
 
@@ -488,13 +488,13 @@ Level 5: Check system logs, USB diagnostics
 **Solution**: Systematically prove what the problem ISN'T
 
 ```
-✅ NOT a configuration error (Cargo.toml correct)
-✅ NOT a code error (defmt_rtt imported correctly)
-✅ NOT a memory mapping issue (address in valid RAM)
-✅ NOT a library conflict (no esp-println symbols)
-✅ NOT a timeout issue (30s still fails)
-✅ NOT a timing issue (2s delay doesn't help)
-❌ MUST BE: Tool/hardware layer issue
+NOT a configuration error (Cargo.toml correct)
+NOT a code error (defmt_rtt imported correctly)
+NOT a memory mapping issue (address in valid RAM)
+NOT a library conflict (no esp-println symbols)
+NOT a timeout issue (30s still fails)
+NOT a timing issue (2s delay doesn't help)
+MUST BE: Tool/hardware layer issue
 ```
 
 **Why this works**: Elimination narrows search space exponentially
@@ -590,10 +590,10 @@ probe-rs --version
 
 | Hypothesis | Test | Result | Conclusion |
 |------------|------|--------|------------|
-| Timeout too short | Try 30s timeout | Still fails | ❌ Rejected |
-| RTT not initialized | Add 2s delay | Still fails + USB errors | ❌ Rejected, but revealed new info |
-| esp-println conflict | Check `nm` for symbols | No symbols found | ❌ Rejected |
-| USB transfer issue | Check cargo embed verbose | USB errors found | ✅ **Confirmed** |
+| Timeout too short | Try 30s timeout | Still fails | Rejected |
+| RTT not initialized | Add 2s delay | Still fails + USB errors | Rejected, but revealed new info |
+| esp-println conflict | Check `nm` for symbols | No symbols found | Rejected |
+| USB transfer issue | Check cargo embed verbose | USB errors found | **Confirmed** |
 
 #### Technique 10: Documentation Logging
 

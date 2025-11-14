@@ -442,4 +442,4 @@ To add a new task (e.g., sensor reading):
 ✅ **Independent task rates** optimize for different responsiveness needs
 ✅ **Each task is testable** in isolation
 
-Great job completing Lesson 02! 🎉
+Lesson 02 complete.

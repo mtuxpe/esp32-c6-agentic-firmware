@@ -4,28 +4,27 @@
 ![esp-hal](https://img.shields.io/badge/esp--hal-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## 🚀 Overview
+## Overview
 
-Modern embedded Rust development for ESP32-C6 using **esp-hal 1.0.0** (pure Rust, bare-metal HAL) with practical, lesson-based tutorials.
+Embedded Rust firmware development for ESP32-C6 using **esp-hal 1.0.0** with practical, lesson-based tutorials.
 
-**Why esp-hal 1.0.0?**
-- ✨ **Pure Rust** - No C dependencies, no ESP-IDF required
-- 🎯 **Official Support** - Backed by Espressif
-- 🔥 **Bare Metal** - Direct hardware access, smaller binaries
-- ⚡ **Modern** - Implements embedded-hal 1.0 traits
+**About esp-hal 1.0.0:**
+- Pure Rust (no C dependencies, no ESP-IDF)
+- Bare-metal HAL with direct hardware access
+- Implements embedded-hal 1.0 traits
 
-## 📚 Lessons
+## Lessons
 
 Progressive tutorials from basic GPIO to advanced debugging:
 
-- **[01-button-neopixel](./lessons/01-button-neopixel/)** ✅ - GPIO input/output with WS2812 NeoPixel control via RMT peripheral
+- **[01-button-neopixel](./lessons/01-button-neopixel/)** - GPIO input/output with WS2812 NeoPixel control via RMT peripheral
 - **[02-task-scheduler](./lessons/02-task-scheduler/)** - Cooperative task scheduling and periodic execution
 - **[03-mpu9250](./lessons/03-mpu9250/)** - I2C communication with MPU9250 IMU sensor
 - **[04-static-color-navigator](./lessons/04-static-color-navigator/)** - State machine-based UI navigation with button input
 - **[05-unit-and-integration-testing](./lessons/05-unit-and-integration-testing/)** - Testing strategies for embedded firmware
 - **[06-uart-terminal](./lessons/06-uart-terminal/)** - UART communication and interactive terminal interface
-- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - Hardware debugging with GDB and OpenOCD
-- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** ✅ - Real-time variable streaming + GDB tandem debugging
+- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** - Hardware debugging with GDB and OpenOCD
+- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** - Real-time variable streaming + GDB tandem debugging
 
 **Status:** Lessons 01, 07, and 08 are fully tested and documented with hardware validation.
 
@@ -36,7 +35,7 @@ Progressive tutorials from basic GPIO to advanced debugging:
 
 See [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md) for the full curriculum.
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -59,7 +58,7 @@ cargo run --release  # Flash to ESP32-C6
 
 See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
 
-## 🔧 Debugging
+## Debugging
 
 This project demonstrates multiple debugging approaches:
 
@@ -67,7 +66,7 @@ This project demonstrates multiple debugging approaches:
 - **UART Variable Streaming** (Lesson 08) - Real-time variable monitoring with GDB tandem debugging
 - **RTT Tools** (Future work) - See `future/` directory for RTT exploration and tools
 
-## 📖 Documentation
+## Documentation
 
 - **[docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)** - Full curriculum overview
 - **[future/README.md](./future/README.md)** - Advanced exploration and RTT tools
@@ -75,7 +74,7 @@ This project demonstrates multiple debugging approaches:
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
 
-## 🔥 esp-hal 1.0.0 Highlights
+## esp-hal 1.0.0 Features
 
 **Core Features:**
 - Stable API with backward compatibility guarantees
@@ -99,9 +98,9 @@ fn main() -> ! {
 }
 ```
 
-No ESP-IDF. No C code. Pure Rust! 🦀
+No ESP-IDF or C dependencies required.
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 lessons/
@@ -129,24 +128,12 @@ docs/
 └── ...
 ```
 
-## 🤝 Contributing
-
-Contributions welcome! Focus areas:
-- New esp-hal 1.0.0 examples
-- Lesson improvements
-- Documentation
-- Bug fixes
-
-## 📄 License
+## License
 
 MIT OR Apache-2.0
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- **[esp-rs Team](https://github.com/esp-rs)** - esp-hal 1.0.0
-- **[Espressif](https://www.espressif.com/)** - Official Rust support
-- **[Rust Embedded](https://github.com/rust-embedded)** - embedded-hal standards
-
----
-
-**Built with esp-hal 1.0.0 🦀 | Modern Embedded Rust Development**
+- [esp-rs Team](https://github.com/esp-rs) - esp-hal development
+- [Espressif](https://www.espressif.com/) - ESP32-C6 hardware and tooling
+- [Rust Embedded](https://github.com/rust-embedded) - embedded-hal standards

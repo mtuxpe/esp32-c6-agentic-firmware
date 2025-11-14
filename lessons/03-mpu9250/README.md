@@ -51,14 +51,14 @@ cargo run --release
 ## Expected Output
 
 ```
-🚀 Starting Lesson 03: MPU9250 Sensor
+Starting Lesson 03: MPU9250 Sensor
 
 ✓ I2C initialized (GPIO2=SDA, GPIO11=SCL)
 ✓ MPU9250 awake
 ✓ WHO_AM_I: 0x71
 ✓ Task scheduler ready
 
-🔄 Starting sensor readings...
+Starting sensor readings...
 
 [Accel] X= 16052 Y= -5744 Z=  1576
 [Gyro]  X=  -111 Y=   -49 Z=   -54
@@ -114,4 +114,4 @@ The MPU9250 I2C interface:
 
 ---
 
-*I2C sensor communication - foundation for motion-based applications!* 🚀
+I2C sensor communication - foundation for motion-based applications.

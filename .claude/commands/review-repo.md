@@ -232,6 +232,7 @@ ls -1 .claude/commands/
 3. **Test one lesson first** - Don't batch test until single lesson works
 4. **Use reliable scripts** - Prefer provided templates over custom scripts
 5. **Capture full logs** - Don't truncate output, save to /tmp/lesson-test-logs/
+6. **Build errors are expected** - Rust nightly toolchain may have breaking changes; document but don't block review
 
 ### Why These Rules Exist
 
@@ -239,6 +240,7 @@ ls -1 .claude/commands/
 - Batch testing hides individual failures → false diagnoses
 - Grep-based success detection is fragile → use exit codes
 - Custom scripts may have bugs → use tested templates
+- esp-hal/esp-rom-sys may lag behind latest Rust nightly → not a lesson issue
 
 ---
 
@@ -1000,12 +1002,11 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 ### Step 8.1: Contribution Guidelines
 
 **Check if repo has:**
-- [ ] CONTRIBUTING.md
-- [ ] CODE_OF_CONDUCT.md
 - [ ] LICENSE file
-- [ ] Issue templates
-- [ ] PR templates
-- [ ] Beginner-friendly labels
+- [ ] Issue templates (optional)
+- [ ] PR templates (optional)
+
+**Note:** CONTRIBUTING.md and CODE_OF_CONDUCT.md are intentionally NOT included in this project.
 
 ### Step 8.2: Example Projects
 

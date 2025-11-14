@@ -55,7 +55,7 @@ Test 2: Read MPU9250 WHO_AM_I register...
   ✓ Correct WHO_AM_I value
 Test 3: Multiple I2C reads (reliability)...
   ✓ 10/10 reads successful
-🎉 Integration tests complete!
+Integration tests complete!
 ```
 
 ## Code Examples
@@ -175,7 +175,7 @@ fn read_sensor_and_update_led(i2c: &mut I2c, led: &mut Led) {
   - Clear interfaces
   - Loose coupling
 
-**Living Documentation** 📖
+**Living Documentation**
 - Tests show how code should work
 - Always up-to-date (or they fail)
 
@@ -203,11 +203,11 @@ fn read_sensor_and_update_led(i2c: &mut I2c, led: &mut Led) {
 
 ## Benefits
 
-- ⚡ **Fast Feedback** - Tests run in milliseconds
-- 🐛 **Easy Debugging** - Standard Rust debuggers
-- 🤖 **CI/CD Ready** - No hardware needed for unit tests
-- 💰 **Cost Effective** - No expensive test equipment
-- 🔁 **Confidence** - Refactor without fear
+- **Fast Feedback** - Tests run in milliseconds
+- **Easy Debugging** - Standard Rust debuggers
+- **CI/CD Ready** - No hardware needed for unit tests
+- **Cost Effective** - No expensive test equipment
+- **Confidence** - Refactor without fear
 
 ## Limitations (Host Testing)
 

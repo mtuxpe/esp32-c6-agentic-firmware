@@ -55,7 +55,7 @@ cargo run --release
 ## Expected Output
 
 ```
-🚀 Starting Lesson 04: Statig Color Navigator
+Starting Lesson 04: Static Color Navigator
 
 ✓ I2C initialized (GPIO2=SDA, GPIO11=SCL)
 ✓ MPU9250 awake
@@ -64,17 +64,17 @@ cargo run --release
 ✓ NeoPixel initialized (GPIO8)
 ✓ State machine initialized
 
-🔄 Starting interactive loop...
+Starting interactive loop...
 
-📊 IMU: accel_x=15976, accel_y=4968
-💡 LED: HSV(14°, 100%, 35%) → RGB(89, 21, 0)
+IMU: accel_x=15976, accel_y=4968
+LED: HSV(14°, 100%, 35%) → RGB(89, 21, 0)
 
 [User presses button]
-🔘 Event: ButtonPressed
-🎨 Transition: WarmPalette → CoolPalette
+Event: ButtonPressed
+Transition: WarmPalette → CoolPalette
 
-📊 IMU: accel_x=11824, accel_y=11396
-💡 LED: HSV(203°, 100%, 35%) → RGB(0, 13, 89)
+IMU: accel_x=11824, accel_y=11396
+LED: HSV(203°, 100%, 35%) → RGB(0, 13, 89)
 
 [Continuous updates as board rotates...]
 ```

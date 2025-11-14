@@ -362,10 +362,11 @@ espflash flash --chip esp32c6 target/riscv32imac-unknown-none-elf/release/lesson
 
 ## Key Takeaways
 
-✅ **no_std** embedded programming has no allocator, no threads, no filesystem
-✅ **RMT peripheral** handles precise timing for WS2812 protocol
-✅ **Edge detection** prevents button bounce and held-button spam
-✅ **Pull-up resistors** ensure stable digital input readings
-✅ **RGB color mixing** lets you create any color (16.7 million combinations!)
+**Key concepts:**
+- no_std embedded programming has no allocator, no threads, no filesystem
+- RMT peripheral handles precise timing for WS2812 protocol
+- Edge detection prevents button bounce and held-button spam
+- Pull-up resistors ensure stable digital input readings
+- RGB color mixing provides 16.7 million color combinations
 
-Great job completing Lesson 01! 🎉
+Lesson 01 complete.
