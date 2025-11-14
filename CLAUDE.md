@@ -199,6 +199,62 @@ Use inline bash for:
 
 ---
 
+### CRITICAL: Commands That Freeze Conversations
+
+**NEVER use these commands - they will hang indefinitely and freeze the conversation:**
+
+```bash
+# ❌ DANGEROUS: sleep commands (blocks for N seconds)
+sleep 5
+sleep 10 && other_command
+
+# ❌ DANGEROUS: timeout command (doesn't exist on macOS by default)
+timeout 5 cat /dev/cu.usbserial*
+timeout 10 head -20 /dev/ttyUSB0
+
+# ❌ DANGEROUS: Reading from serial ports without timeout
+cat /dev/cu.usbmodem*
+head -20 /dev/cu.usbserial*
+tail -f /dev/ttyUSB0
+
+# ❌ DANGEROUS: Background processes without auto-termination
+cat /dev/cu.usbserial* &
+python script.py &  # Unless script has built-in timeout
+
+# ❌ DANGEROUS: Interactive monitoring tools
+espflash monitor
+screen /dev/ttyUSB0
+minicom
+```
+
+**✅ SAFE alternatives:**
+
+```bash
+# ✅ GOOD: Use Python script with guaranteed timeout
+python3 read_uart.py /dev/cu.usbserial-FT58PFX4 5
+
+# ✅ GOOD: Poll for completion instead of sleep
+while [ ! -f /tmp/done ]; do echo "waiting..."; done
+
+# ✅ GOOD: Use built-in command timeouts (when available)
+cargo build --release  # Has implicit timeout
+
+# ✅ GOOD: Non-blocking status checks
+ps aux | grep process_name
+ls -la /tmp/output.txt
+```
+
+**Why these commands are dangerous:**
+- `sleep` blocks the conversation for the entire duration
+- `timeout` doesn't exist on macOS (not in default PATH)
+- Reading from serial devices without timeout waits forever if no data arrives
+- Background processes (`&`) don't auto-terminate and can leak resources
+- Interactive tools require TTY and user input, which isn't available
+
+**Rule of thumb:** If a command might wait indefinitely for data/events, it will freeze the conversation. Always use time-bounded operations with guaranteed termination.
+
+---
+
 ## Common Mistakes to Avoid
 
 1. ❌ Using Task() to generate files
@@ -208,6 +264,8 @@ Use inline bash for:
 5. ❌ Using expensive models (Sonnet/Opus) by default
 6. ❌ Using complex conditionals inline in Bash (use temp scripts!)
 7. ❌ Expecting variables to persist across Bash() calls (use files!)
+8. ❌ **Using `sleep`, `timeout`, `cat <serial>`, `head <serial>`, or any blocking command**
+9. ❌ **Reading from serial ports without guaranteed timeout**
 
 ---
 

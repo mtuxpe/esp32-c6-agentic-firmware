@@ -34,9 +34,9 @@ esp_bootloader_esp_idf::esp_app_desc!();
 // Memory Safety Constants
 // ================================================================================================
 
-/// ESP32-C6 RAM address range (512 KB total)
-const RAM_START: usize = 0x3FC80000;
-const RAM_END: usize = 0x3FD00000;
+/// ESP32-C6 RAM address range (512 KB total, from memory.x linker script)
+const RAM_START: usize = 0x40800000;
+const RAM_END: usize = 0x40880000;
 
 // ================================================================================================
 // Variable Slot System
