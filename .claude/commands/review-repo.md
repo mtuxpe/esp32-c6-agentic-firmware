@@ -119,97 +119,238 @@ ls -1 lessons/
 
 ```bash
 # List all Claude Code infrastructure
-find .claude -type f -name "*.md" -o -name "*.py" -o -name "*.sh"
+find .claude -type f | sort
+ls -1 .claude/commands/
 ```
 
-**For each command in `.claude/commands/`:**
-- [ ] `/gen-lesson` - Still relevant? Works as documented?
-- [ ] `/test-lesson` - Comprehensive enough? Needs updates?
-- [ ] `/test-debug-infrastructure` - Covers all debug workflows?
-- [ ] `/setup-hardware-lesson` - Template up to date?
-- [ ] `/test-uart-pins` - Utility still needed?
-- [ ] `/improve-command` - Meta-tool working well?
-- [ ] `/esp32-debug` - Debug command useful?
+**Current infrastructure:**
+```
+.claude/
+├── commands/
+│   ├── esp32-debug.md
+│   ├── gen-lesson.md
+│   ├── improve-command.md
+│   ├── review-repo.md (this file)
+│   ├── setup-hardware-lesson.md
+│   ├── test-debug-infrastructure.md
+│   ├── test-lesson.md
+│   └── test-uart-pins.md
+├── templates/
+│   ├── check-cargo-locks.sh
+│   ├── read_uart.py
+│   ├── test-all-lessons.sh
+│   ├── uart_test_minimal.rs
+│   └── validate-lesson.sh
+├── TEST.md.template
+├── TESTING-GUIDE.md
+└── test-lesson-improvements.md
+```
+
+**For EACH command in `.claude/commands/`, evaluate:**
+
+1. **Purpose & Relevance**
+   - [ ] Still needed for current workflow?
+   - [ ] Duplicates functionality of another command?
+   - [ ] Could be combined with similar commands?
+   - [ ] Should be split into multiple focused commands?
+
+2. **Accuracy & Currency**
+   - [ ] Instructions match current esp-hal 1.0.0?
+   - [ ] References to CLAUDE.md conventions accurate?
+   - [ ] Hardware setup matches actual lessons?
+   - [ ] Example commands tested and working?
+
+3. **Command-Specific Reviews:**
+
+   **`/esp32-debug`** - General debugging helper
+   - [ ] Still relevant or superseded by /test-debug-infrastructure?
+   - [ ] Combine with /test-lesson?
+
+   **`/gen-lesson`** - Lesson generation workflow
+   - [ ] Does it create lessons matching current structure?
+   - [ ] Should it call /setup-hardware-lesson internally?
+
+   **`/improve-command`** - Meta-tool for command improvement
+   - [ ] Has this been used? Was it helpful?
+   - [ ] Document successful patterns from this review
+
+   **`/setup-hardware-lesson`** - New lesson setup
+   - [ ] Template up to date with esp-hal 1.0.0?
+   - [ ] Should this be merged into /gen-lesson?
+
+   **`/test-debug-infrastructure`** - Debug validation
+   - [ ] Covers Lesson 07 + 08 workflows?
+   - [ ] Overlaps with /test-lesson?
+
+   **`/test-lesson`** - Unified hardware testing
+   - [ ] Most comprehensive? Should this be the primary command?
+   - [ ] Does it replace /test-uart-pins?
+
+   **`/test-uart-pins`** - GPIO pin verification
+   - [ ] Utility still needed or merged into /test-lesson?
+   - [ ] Specific enough to keep separate?
 
 **For `.claude/templates/`:**
 - [ ] `uart_test_minimal.rs` - Uses esp-hal 1.0.0 correctly?
 - [ ] `read_uart.py` - Works reliably across platforms?
-- [ ] Any other templates needed?
+- [ ] `check-cargo-locks.sh` - New script, tested?
+- [ ] `test-all-lessons.sh` - New script, tested?
+- [ ] `validate-lesson.sh` - New script, tested?
+
+**For other `.claude/` files:**
+- [ ] `TESTING-GUIDE.md` - Current and referenced by commands?
+- [ ] `TEST.md.template` - Used by lessons? Up to date?
+- [ ] `test-lesson-improvements.md` - Still relevant or archive?
+
+**Consolidation Opportunities:**
+
+**Candidate for merge:**
+- `/esp32-debug` + `/test-debug-infrastructure` → Single debug command?
+- `/setup-hardware-lesson` + `/gen-lesson` → Unified lesson creator?
+- `/test-uart-pins` + `/test-lesson` → Absorb into main test command?
+
+**Candidate for split:**
+- `/gen-lesson` → Separate PRD generation from code scaffolding?
+- `/test-lesson` → Split hardware test from simulation/build-only?
 
 **Actions:**
-- List commands to delete, update, or add
-- Note any templates that need refreshing
+- [ ] List commands to delete, merge, or split
+- [ ] Note templates that need testing
+- [ ] Identify gaps in command coverage
+- [ ] Recommend command consolidation plan
 
 ---
 
-## Best Practices for Bulk Operations
+## ⚠️ CRITICAL: Testing Best Practices
 
-**CRITICAL:** Due to shell execution limitations in the LLM environment, follow these patterns:
+**READ THIS FIRST - Violations will cause review to fail.**
 
-### ✅ Use Temp Scripts for Bulk Testing
+### Core Principles
 
-**For testing multiple lessons, ALWAYS use temp scripts:**
+1. **NEVER use `cd`** - Always use absolute paths or `--manifest-path`
+2. **Verify environment first** - Check state before running tests
+3. **Test one lesson first** - Don't batch test until single lesson works
+4. **Use reliable scripts** - Prefer provided templates over custom scripts
+5. **Capture full logs** - Don't truncate output, save to /tmp/lesson-test-logs/
 
-**Option 1: Use provided template script**
+### Why These Rules Exist
+
+- `cd` changes persist across bash calls → working directory confusion
+- Batch testing hides individual failures → false diagnoses
+- Grep-based success detection is fragile → use exit codes
+- Custom scripts may have bugs → use tested templates
+
+---
+
+## Reliable Testing Workflow
+
+### Step 0: Verify Test Environment
+
+**Always verify environment before any testing:**
 
 ```bash
-# Use the pre-made template
-.claude/templates/test-all-lessons.sh
+bash .claude/templates/verify-test-environment.sh
 ```
 
-**Option 2: Create custom temp script**
+**Expected output:**
+- ✅ Working directory correct
+- ✅ Repository structure intact
+- ✅ Rust toolchain available
+- ✅ No conflicting processes
+
+**If verification fails, STOP and fix issues before proceeding.**
+
+---
+
+### Step 1: Test Single Lesson (Sanity Check)
+
+**Test the simplest lesson first:**
 
 ```bash
-# ✅ RECOMMENDED: Temp script approach
-cat > /tmp/test-all-lessons.sh << 'EOF'
-#!/bin/bash
-cd /Users/shanemattner/Desktop/esp32-c6-agentic-firmware
+bash .claude/templates/test-single-lesson-reliable.sh lessons/01-button-neopixel
+```
 
-for lesson_dir in lessons/*/; do
-  name=$(basename "$lesson_dir")
-  echo "=== Testing $name ==="
-  cargo build --release --manifest-path "$lesson_dir/Cargo.toml" 2>&1 | tail -5
-  echo ""
+**Expected:**
+- Build succeeds with exit code 0
+- Binary found and sized
+- Full log saved to /tmp/lesson-test-logs/
+
+**If this fails:**
+1. Check the full log: `cat /tmp/lesson-test-logs/01-button-neopixel.log`
+2. Look for actual error (not just symptoms)
+3. Fix the one lesson before proceeding
+4. **DO NOT** assume systemic toolchain issues without evidence
+
+---
+
+### Step 2: Test Representative Sample
+
+**Test 3 lessons of varying complexity:**
+
+```bash
+bash .claude/templates/test-single-lesson-reliable.sh lessons/01-button-neopixel
+bash .claude/templates/test-single-lesson-reliable.sh lessons/03-mpu9250
+bash .claude/templates/test-single-lesson-reliable.sh lessons/08-uart-gdb-tandem
+```
+
+**Expected:** All three succeed
+
+**If any fail:** Investigate individually, don't proceed to bulk testing
+
+---
+
+### Step 3: Bulk Test All Lessons
+
+**Only proceed if Steps 0-2 passed:**
+
+```bash
+bash .claude/templates/test-all-lessons-reliable.sh
+```
+
+**This script will:**
+- Run pre-flight checks
+- Test each lesson individually
+- Capture full logs for each
+- Generate summary report
+
+**Output:** Summary file at /tmp/lesson-test-logs/test-summary.txt
+
+---
+
+### Testing Anti-Patterns (DO NOT USE)
+
+❌ **Don't loop in bash:**
+```bash
+# BAD: Hidden failures, fragile
+for lesson in lessons/*/; do
+  cargo build --manifest-path "$lesson/Cargo.toml"
 done
-EOF
-chmod +x /tmp/test-all-lessons.sh
-/tmp/test-all-lessons.sh
 ```
 
-### ❌ Avoid Inline Loops with Command Substitution
-
-**These patterns WILL FAIL in eval context:**
-
+❌ **Don't use cd:**
 ```bash
-# ❌ BAD: Command substitution in loops
-for lesson in lessons/*/; do echo "$(basename $lesson)"; done
-
-# ❌ BAD: Complex glob patterns with variables
-for num in 01 02 03; do cargo build --manifest-path "lessons/$num"-*/Cargo.toml; done
+# BAD: Changes working directory persistently
+cd lessons/01-button-neopixel
+cargo build
 ```
 
-### ✅ Use --manifest-path Instead of cd
-
-**Follow CLAUDE.md convention:**
-
+❌ **Don't grep for success:**
 ```bash
-# ✅ GOOD: Use --manifest-path to avoid cd
-cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml
-
-# ❌ AVOID: cd into directory
-cd lessons/01-button-neopixel && cargo build --release && cd ../..
+# BAD: Fragile pattern matching
+cargo build 2>&1 | grep -q "Finished"
 ```
 
-### ✅ Filter Output for Efficiency
-
-**Reduce token usage by filtering verbose output:**
-
+❌ **Don't truncate error output:**
 ```bash
-# For successful builds, show only summary
-cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1 | tail -5
+# BAD: Might miss critical context
+cargo build 2>&1 | head -5
+```
 
-# For failed builds, show errors
-cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1 | grep -E '(error|warning)' | head -20
+✅ **Use provided scripts:**
+```bash
+# GOOD: Tested, reliable, comprehensive
+bash .claude/templates/test-single-lesson-reliable.sh lessons/XX-name
+bash .claude/templates/test-all-lessons-reliable.sh
 ```
 
 ---
@@ -248,15 +389,18 @@ find lessons -name "Cargo.lock" -mtime +7 -exec ls -lh {} \;
 **If stale Cargo.lock files found (or if any lesson fails to build):**
 
 ```bash
-# Update dependencies for all lessons (use temp script)
+# Update dependencies for specific lesson (no cd needed)
+cargo update --manifest-path lessons/01-button-neopixel/Cargo.toml
+
+# OR update all lessons (use temp script with --manifest-path)
 cat > /tmp/update-deps.sh << 'EOF'
 #!/bin/bash
-cd /Users/shanemattner/Desktop/esp32-c6-agentic-firmware
+REPO_ROOT="/Users/shanemattner/Desktop/esp32-c6-agentic-firmware"
 
-for lesson_dir in lessons/*/; do
+for lesson_dir in "$REPO_ROOT"/lessons/*/; do
   name=$(basename "$lesson_dir")
   echo "=== Updating $name ==="
-  (cd "$lesson_dir" && cargo update)
+  cargo update --manifest-path "$lesson_dir/Cargo.toml"
 done
 EOF
 chmod +x /tmp/update-deps.sh
@@ -269,11 +413,23 @@ chmod +x /tmp/update-deps.sh
 
 ### Step 2.1: Validate Each Lesson
 
-**For EACH lesson (01 through 08), perform these checks:**
+**IMPORTANT: Follow the "Reliable Testing Workflow" outlined above (Steps 0-3).**
 
-#### Build & Flash Validation
+**Summary of workflow:**
 
-**Use temp script for systematic testing:**
+1. **Verify environment** - `bash .claude/templates/verify-test-environment.sh`
+2. **Test one lesson** - `bash .claude/templates/test-single-lesson-reliable.sh lessons/01-button-neopixel`
+3. **Test sample (3 lessons)** - Simple, medium, complex
+4. **Bulk test all** - `bash .claude/templates/test-all-lessons-reliable.sh`
+
+**Do NOT skip steps. Do NOT create custom scripts unless templates fail.**
+
+---
+
+#### Build & Flash Validation (DEPRECATED - Use workflow above)
+
+<details>
+<summary>Legacy instructions (click to expand - NOT RECOMMENDED)</summary>
 
 **Option 1: Use provided template script**
 
@@ -284,7 +440,7 @@ chmod +x /tmp/update-deps.sh
 # ... continue for each lesson
 ```
 
-**Option 2: Create custom validation script**
+**Option 2: Create custom validation script (AVOID THIS)**
 
 ```bash
 # Create build validation script
@@ -342,11 +498,12 @@ cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1
 **If build fails with dependency errors:**
 
 ```bash
-# Try updating dependencies first
-cd lessons/XX-name/
-cargo update
-cargo build --release 2>&1 | tail -10
+# Try updating dependencies first (no cd!)
+cargo update --manifest-path lessons/XX-name/Cargo.toml
+cargo build --release --manifest-path lessons/XX-name/Cargo.toml 2>&1 | tail -10
 ```
+
+</details>
 
 **Questions:**
 - Does it build without errors?
@@ -472,9 +629,251 @@ cargo build --release 2>&1 | tail -10
 
 ---
 
-## Phase 4: Documentation Audit
+## Phase 4: AI-Generated Content & Code Quality Review
 
-### Step 4.1: Check Documentation Completeness
+### Step 4.1: Identify and Remove LLM Artifacts
+
+**Purpose**: Ensure the repository appears professional, not AI-generated. We want clean, simple Rust code showcasing esp-hal 1.0.0 and effective Claude Code usage—not LLM quirks.
+
+**What to look for and ELIMINATE:**
+
+#### 🚫 Exaggerated or Unfounded Claims
+
+**Check all documentation for:**
+- [ ] Superlatives without evidence ("revolutionary", "best-in-class", "game-changing")
+- [ ] Unsubstantiated performance claims ("10x faster" without benchmarks)
+- [ ] Marketing language ("cutting-edge", "next-generation", "industry-leading")
+- [ ] Over-promising ("complete guide", "everything you need", "ultimate solution")
+
+**Examples to fix:**
+```markdown
+❌ "This revolutionary approach to embedded debugging changes everything!"
+✅ "This approach combines UART streaming with GDB for hardware debugging."
+
+❌ "The most comprehensive esp-hal tutorial available anywhere!"
+✅ "Progressive lessons teaching esp-hal 1.0.0 fundamentals."
+```
+
+**Action**: Replace marketing language with factual, technical descriptions.
+
+---
+
+#### 🚫 Excessive Emojis
+
+**Check for emoji overuse:**
+- [ ] More than 1-2 emojis per document section
+- [ ] Emojis in code comments
+- [ ] Emojis in technical explanations
+- [ ] Decorative emojis without purpose
+
+**Acceptable emoji use:**
+- Status indicators (✅ ❌ ⚠️) in checklists
+- Section markers in VERY long documents (sparingly)
+
+**Examples to fix:**
+```markdown
+❌ "🚀 Amazing GPIO Features! 🎉✨"
+✅ "GPIO Features"
+
+❌ "Let's build something awesome! 💪🔥"
+✅ "Let's build a button input handler."
+```
+
+**Action**: Remove decorative emojis. Keep only functional status markers if needed.
+
+---
+
+#### 🚫 Excessive Dividers (Dashes)
+
+**Check for overuse of visual separators:**
+- [ ] Multiple `---` or `***` dividers in short documents
+- [ ] Decorative ASCII art borders
+- [ ] Overuse of `═══` or `───` patterns
+
+**Acceptable use:**
+- Markdown horizontal rules (`---`) for major section breaks (sparingly)
+- Code block fences (` ``` `)
+
+**Examples to fix:**
+```markdown
+❌
+---
+### Section 1
+---
+Content here
+---
+### Section 2
+---
+
+✅
+### Section 1
+Content here
+
+### Section 2
+```
+
+**Action**: Limit dividers to major section breaks only. Rely on headers for structure.
+
+---
+
+#### 🚫 Over-Complication
+
+**Check for unnecessary complexity:**
+- [ ] Abstractions that obscure learning (in lessons)
+- [ ] Over-engineered patterns for simple tasks
+- [ ] Verbose explanations when concise would suffice
+- [ ] Nested structures deeper than necessary
+- [ ] Too many layers of indirection
+
+**Code patterns to simplify:**
+```rust
+❌ // Over-engineered
+pub trait ButtonHandler {
+    fn handle_press(&mut self);
+}
+struct ConcreteButtonHandler;
+impl ButtonHandler for ConcreteButtonHandler { ... }
+
+✅ // Simple and direct
+pub fn handle_button_press(pin: &Input<GpioPin>) {
+    // Direct implementation
+}
+```
+
+**Documentation to simplify:**
+```markdown
+❌ "In order to facilitate the initialization of the peripheral subsystem..."
+✅ "To initialize the UART peripheral..."
+```
+
+**Action**: Prefer directness over cleverness. Use simple patterns for lessons.
+
+---
+
+#### 🚫 Too Many Files
+
+**Check for file proliferation:**
+- [ ] Multiple files for single concepts (split unnecessarily)
+- [ ] Duplicate information across files
+- [ ] Archive/backup files not gitignored
+- [ ] Intermediate files left in repo
+
+**Consolidation candidates:**
+```
+❌ Too fragmented:
+docs/gpio.md
+docs/gpio-input.md
+docs/gpio-output.md
+docs/gpio-examples.md
+
+✅ Consolidated:
+docs/gpio.md (covers input, output, examples)
+```
+
+**Action**: Merge related content. Delete duplicates and archives.
+
+---
+
+#### 🚫 Other LLM Quirks to Remove
+
+**Check for:**
+- [ ] **Apologetic language**: "Sorry, but...", "Unfortunately..."
+- [ ] **Hedging**: "It seems like...", "Perhaps...", "You might want to..."
+- [ ] **Conversational filler**: "Now let's...", "As you can see...", "Moving on..."
+- [ ] **Excessive politeness**: "Please note that...", "Kindly ensure..."
+- [ ] **Meta-commentary**: "This is a great example of...", "Note how we..."
+- [ ] **Redundant warnings**: Multiple "IMPORTANT" or "WARNING" markers
+
+**Examples to fix:**
+```markdown
+❌ "Now let's move on to the exciting topic of UART! As you can see..."
+✅ "## UART Communication"
+
+❌ "Please note that you should kindly ensure the pins are configured."
+✅ "Configure the pins before use."
+
+❌ "Unfortunately, the I2C peripheral requires initialization."
+✅ "Initialize the I2C peripheral."
+```
+
+**Action**: Use technical, direct language. Remove conversational fluff.
+
+---
+
+### Step 4.2: Ensure Professional, Clean Presentation
+
+**Goals:**
+- Repository reads like professional embedded systems documentation
+- Code examples are clear, idiomatic Rust
+- esp-hal 1.0.0 usage is correct and well-explained
+- Claude Code integration is demonstrated effectively (but not over-hyped)
+
+**Review each document for:**
+- [ ] **Tone**: Technical, informative, not promotional
+- [ ] **Clarity**: Direct statements, no unnecessary words
+- [ ] **Structure**: Headers and content, minimal decorations
+- [ ] **Accuracy**: Claims are backed by code/hardware validation
+
+**What GOOD looks like:**
+
+```markdown
+# Lesson 01: Button Input and NeoPixel Control
+
+This lesson demonstrates GPIO input (button) and RMT output (NeoPixel LED).
+
+## Hardware Requirements
+
+- ESP32-C6 development board
+- Push button connected to GPIO 9
+- WS2812 NeoPixel LED connected to GPIO 8
+- Pull-up resistor for button (internal or external)
+
+## Concepts Covered
+
+- GPIO input configuration
+- Debouncing techniques
+- RMT peripheral for precise timing
+- WS2812 protocol basics
+
+## Build and Flash
+
+```bash
+cargo build --release
+cargo run --release
+```
+
+## Expected Behavior
+
+- Press button: NeoPixel cycles through colors (red → green → blue)
+- Release button: LED turns off
+```
+
+**This is clean, factual, sufficient.**
+
+---
+
+### Step 4.3: Validate Claude Code Integration
+
+**Ensure .claude/ infrastructure showcases good practices:**
+
+- [ ] **Commands are focused**: Each does one thing well
+- [ ] **No command bloat**: Consolidate overlapping functionality
+- [ ] **Templates are minimal**: uart_test_minimal.rs should be ~73 lines
+- [ ] **Scripts are robust**: Handle errors, provide clear output
+- [ ] **CLAUDE.md is authoritative**: Guidelines match reality, no fluff
+
+**Questions to answer:**
+- Does the .claude/ setup demonstrate value without being overwhelming?
+- Are commands documented clearly (purpose, usage, examples)?
+- Can someone new to Claude Code understand what each command does?
+
+**Action**: Trim commands, merge duplicates, remove unused infrastructure.
+
+---
+
+## Phase 5: Documentation Audit
+
+### Step 5.1: Check Documentation Completeness
 
 **Review all markdown files:**
 
@@ -489,7 +888,7 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 - [ ] Code examples match current esp-hal 1.0.0
 - [ ] Tone appropriate for target audience
 
-### Step 4.2: Validate Inline Documentation
+### Step 5.2: Validate Inline Documentation
 
 **Check code comments across all lessons:**
 
@@ -497,12 +896,15 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 - [ ] Complex sections have explanatory comments
 - [ ] No outdated or misleading comments
 - [ ] Function/struct docs present where needed
+- [ ] **No LLM-style comments**: Remove conversational or apologetic comments in code
 
 ---
 
-## Phase 5: Simplification & Clarity Pass
+## Phase 6: Simplification & Clarity Pass
 
-### Step 5.1: Identify Over-Complexity
+**Note:** Much of this is covered in Phase 4. Focus on code/pattern simplification here.
+
+### Step 6.1: Identify Over-Complexity
 
 **Review each lesson for unnecessary complexity:**
 
@@ -517,7 +919,7 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 - [ ] Identify verbose documentation to trim
 - [ ] Find over-engineered code to refactor
 
-### Step 5.2: Enhance Clarity
+### Step 6.2: Enhance Clarity
 
 **Review for clarity improvements:**
 
@@ -534,9 +936,9 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 
 ---
 
-## Phase 6: Firmware & Software Gaps Analysis
+## Phase 7: Firmware & Software Gaps Analysis
 
-### Step 6.1: Firmware Side Review
+### Step 7.1: Firmware Side Review
 
 **Questions:**
 - **Peripheral Coverage**: Are key ESP32-C6 peripherals covered?
@@ -568,7 +970,7 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 
 ---
 
-### Step 6.2: Software Side Review
+### Step 7.2: Software Side Review
 
 **Questions:**
 - **Tooling**: What tools are missing?
@@ -593,9 +995,9 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 
 ---
 
-## Phase 7: Community Readiness
+## Phase 8: Community Readiness
 
-### Step 7.1: Contribution Guidelines
+### Step 8.1: Contribution Guidelines
 
 **Check if repo has:**
 - [ ] CONTRIBUTING.md
@@ -605,14 +1007,14 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 - [ ] PR templates
 - [ ] Beginner-friendly labels
 
-### Step 7.2: Example Projects
+### Step 8.2: Example Projects
 
 **Check if there are:**
 - [ ] Real-world example projects
 - [ ] Reference implementations
 - [ ] Common use-case templates
 
-### Step 7.3: External Dependencies
+### Step 8.3: External Dependencies
 
 **Audit external dependencies:**
 - [ ] All crates are from crates.io (no git dependencies)
@@ -621,9 +1023,9 @@ find . -name "*.md" -type f | grep -v target | grep -v node_modules
 
 ---
 
-## Phase 8: Final Cleanup & Organization
+## Phase 9: Final Cleanup & Organization
 
-### Step 8.1: Delete Excess Files
+### Step 9.1: Delete Excess Files
 
 **Identify files to remove:**
 ```bash
@@ -639,7 +1041,7 @@ find . -type d -name "target" -o -name "node_modules"
 - [ ] Backup files
 - [ ] Build artifacts in git
 
-### Step 8.2: Git Hygiene
+### Step 9.2: Git Hygiene
 
 **Review git status:**
 - [ ] No uncommitted changes
@@ -648,7 +1050,7 @@ find . -type d -name "target" -o -name "node_modules"
 - [ ] Commit messages descriptive
 - [ ] Branches organized
 
-### Step 8.3: Final Structure Validation
+### Step 9.3: Final Structure Validation
 
 **Ensure consistent structure across all lessons:**
 
@@ -669,9 +1071,9 @@ lessons/XX-name/
 
 ---
 
-## Phase 9: Generate Review Report
+## Phase 10: Generate Review Report
 
-### Step 9.1: Summarize Findings
+### Step 10.1: Summarize Findings
 
 **Create a comprehensive report with:**
 
@@ -680,38 +1082,57 @@ lessons/XX-name/
 - List of lessons needing fixes
 - Recommendations for lesson order/numbering
 
-#### Section 2: Documentation Quality
+#### Section 2: AI-Generated Content Issues
+- LLM artifacts found and removed:
+  - Exaggerated claims count
+  - Excessive emojis removed
+  - Divider overuse cleaned up
+  - Over-complicated patterns simplified
+  - Conversational fluff eliminated
+- File consolidation recommendations
+- .claude/ command consolidation plan
+
+#### Section 3: Documentation Quality
 - CLAUDE.md improvements needed
 - README.md status (exists? complete?)
 - Lesson docs that need updates
 - New documentation needed
 
-#### Section 3: Code Quality
+#### Section 4: Code Quality
 - Lessons following best practices
 - Code needing refactoring
 - Warnings to address
 - Performance concerns
 
-#### Section 4: Missing Features
+#### Section 5: Missing Features
 - Firmware side gaps (peripherals, concepts)
 - Software side gaps (tools, scripts)
 - Infrastructure improvements
 
-#### Section 5: Community Readiness
+#### Section 6: Community Readiness
 - Contribution guidelines status
 - License/legal compliance
 - Example projects needed
 - Issue/PR templates
 
-#### Section 6: Cleanup Actions
+#### Section 7: Cleanup Actions
 - Files to delete
 - Directories to reorganize
 - Git cleanup needed
 
-#### Section 7: Priority Recommendations
+#### Section 8: Priority Recommendations
 1. **Critical** (must fix before sharing)
+   - Missing LICENSE
+   - Inaccurate README
+   - LLM artifacts that hurt professionalism
 2. **Important** (should fix soon)
+   - Command consolidation
+   - File cleanup
+   - Documentation polish
 3. **Nice-to-have** (future improvements)
+   - Additional peripherals
+   - CI/CD setup
+   - Visual aids
 
 ---
 

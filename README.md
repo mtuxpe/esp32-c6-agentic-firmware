@@ -21,7 +21,7 @@ Progressive tutorials from basic GPIO to advanced debugging:
 - **[01-button-neopixel](./lessons/01-button-neopixel/)** ✅ - GPIO input/output with WS2812 NeoPixel control via RMT peripheral
 - **[02-task-scheduler](./lessons/02-task-scheduler/)** - Cooperative task scheduling and periodic execution
 - **[03-mpu9250](./lessons/03-mpu9250/)** - I2C communication with MPU9250 IMU sensor
-- **[04-statig-color-navigator](./lessons/04-statig-color-navigator/)** - State machine-based UI navigation with button input
+- **[04-static-color-navigator](./lessons/04-static-color-navigator/)** - State machine-based UI navigation with button input
 - **[05-unit-and-integration-testing](./lessons/05-unit-and-integration-testing/)** - Testing strategies for embedded firmware
 - **[06-uart-terminal](./lessons/06-uart-terminal/)** - UART communication and interactive terminal interface
 - **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - Hardware debugging with GDB and OpenOCD

@@ -42,7 +42,7 @@ use log::info;
 use smart_leds::{SmartLedsWrite, RGB8};
 use statig::prelude::*;
 
-use lesson_04_statig_color_navigator::{
+use lesson_04_static_color_navigator::{
     button, get_led_color, mpu9250,
     state_machine::{ColorNavigator, Event},
     BUTTON_GPIO, I2C_SCL_GPIO, I2C_SDA_GPIO, NEOPIXEL_GPIO,

@@ -1,11 +1,11 @@
 [package]
-name = "lesson-04-statig-color-navigator"
+name = "lesson-04-static-color-navigator"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 
 [[bin]]
-name = "lesson-04-statig-color-navigator"
+name = "lesson-04-static-color-navigator"
 path = "./src/bin/main.rs"
 
 [dependencies]
