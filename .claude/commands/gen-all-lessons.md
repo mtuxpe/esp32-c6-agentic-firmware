@@ -1,109 +1,158 @@
 ---
-description: Generate all 7 GDB lessons sequentially using the /gen-lesson workflow
+description: Generate esp-hal 1.0.0 + Claude Code curriculum with progressive UART infrastructure
 ---
 
-# /gen-all-lessons - Complete GDB Curriculum Generator
+# /gen-all-lessons - esp-hal 1.0.0 + Claude Code Curriculum
 
-**Purpose**: Orchestrate creation of all 7 GDB lessons (01-07) sequentially, following the curriculum in `GDB_LESSON_PLANS.md`. Each lesson uses the `/gen-lesson` workflow with discovery-based pedagogy.
+**Purpose**: Build practical embedded firmware with esp-hal 1.0.0 Rust, using Claude Code + GDB + UART as your AI debugging partner. Each lesson builds on a progressive UART CLI + streaming infrastructure.
 
-**Target Audience**: Project maintainers creating the complete ESP32-C6 + GDB curriculum.
+**Target Audience**: Embedded developers learning esp-hal 1.0.0 with AI-assisted debugging workflows.
 
-**Time Estimate**: 14-28 hours total (2-4 hours per lesson × 7 lessons)
+**Time Estimate**: 18-30 hours total (3-6 hours per lesson × 5 lessons)
 
 **Prerequisites**:
-- Read `GDB_LESSON_PLANS.md` completely
-- Hardware available: ESP32-C6, LED, FTDI UART, I2C sensor, SPI OLED, servo
+- ESP32-C6-DevKit-C board
+- Hardware: Onboard button (GPIO9), onboard Neopixel (GPIO8), MPU6050 I2C sensor, FTDI UART adapter, LED + 220Ω resistor
 - On `main` branch with clean working directory
 - All dependencies installed (esp-hal, espflash, probe-rs, GDB)
 
 ---
 
-## Workflow Overview
+## Hardware Inventory
+
+### Onboard (ESP32-C6-DevKit-C)
+- ✅ Button (GPIO9, active LOW)
+- ✅ Neopixel WS2812 (GPIO8, RMT peripheral)
+
+### External Components
+- ✅ MPU6050 IMU (I2C on GPIO2=SDA, GPIO11=SCL)
+- ✅ FTDI UART adapter (GPIO23=TX, GPIO15=RX)
+- ✅ LED + 220Ω resistor (GPIO12, for PWM)
+
+---
+
+## Curriculum Overview (5 Lessons)
 
 ```
-/gen-all-lessons
-  ├─ Lesson 01: GPIO + GDB Fundamentals (⭐⭐☆☆☆, 60-90 min)
-  ├─ Lesson 02: UART + DMA (⭐⭐⭐☆☆, 90-120 min)
-  ├─ Lesson 03: I2C + GDB (⭐⭐⭐☆☆, 90-120 min)
-  ├─ Lesson 04: SPI + OLED (⭐⭐⭐⭐☆, 120-150 min)
-  ├─ Lesson 05: PWM + Servo (⭐⭐⭐☆☆, 90-120 min)
-  ├─ Lesson 06: Multi-peripheral (⭐⭐⭐⭐☆, 120-180 min)
-  └─ Lesson 07: Production Debug (⭐⭐⭐⭐⭐, 150-240 min)
+esp-hal 1.0.0 + Claude Code Curriculum (Progressive Infrastructure)
+  ├─ Lesson 01: GPIO Basics + GDB Fundamentals (⭐⭐☆☆☆, 90-120 min)
+  ├─ Lesson 02: UART CLI + Streaming Infrastructure (⭐⭐⭐☆☆, 180-240 min)
+  ├─ Lesson 03: PWM + Neopixel Drivers (extend CLI) (⭐⭐⭐☆☆, 180-240 min)
+  ├─ Lesson 04: MPU6050 + State Machine (extend CLI) (⭐⭐⭐⭐☆, 240-300 min)
+  └─ Lesson 05: Posture Monitor Device (full integration) (⭐⭐⭐⭐⭐, 300-420 min)
 ```
 
-**Each lesson follows**:
-1. Review lesson plan from `GDB_LESSON_PLANS.md`
-2. Proactive hardware testing
-3. Progressive commit development (3-5 commits)
-4. Documentation with commit walkthrough
-5. Hardware validation
-6. PR creation
+**Philosophy**:
+- **Progressive infrastructure** - Each lesson extends the UART CLI built in Lesson 2
+- **Learn by debugging** - Intentional bugs, Claude Code uses GDB to find and fix
+- **Advanced GDB throughout** - Use techniques when needed, not in separate "advanced" lesson
+- **Hardware-based unit testing** - CLI + GDB validate register state after every command
+- **Build a real device** - Culminates in functional posture monitor
+
+---
+
+## Key Innovation: Progressive UART CLI
+
+### Lesson 02 Foundation
+```
+Commands:
+  gpio.init <pin>
+  gpio.on <pin>
+  gpio.off <pin>
+  stream.start
+
+Telemetry:
+  [gpio12=1 counter=45]
+```
+
+### Lesson 03 Extension (adds PWM + Neopixel)
+```
+Commands:
+  gpio.* (from L02)
+  pwm.init <pin> <freq_hz>
+  pwm.duty <pin> <percent>
+  neo.init <pin>
+  neo.color <r> <g> <b>
+  stream.start
+
+Telemetry:
+  [gpio12=1 pwm12=50% pwm_freq=1000 neo_r=255 neo_g=0 neo_b=0]
+```
+
+### Lesson 04 Extension (adds IMU + State Machine)
+```
+Commands:
+  gpio.*, pwm.*, neo.* (from L02-03)
+  imu.init
+  imu.cal
+  imu.read
+  state.set <state>
+  stream.start
+
+Telemetry:
+  [state=Monitoring tilt=5.2° imu_x=245 imu_y=-12 imu_z=16384 neo=green]
+```
+
+### Lesson 05 Final Device (all commands + device modes)
+```
+Commands:
+  All previous commands available for testing
+  device.start posture_monitor
+  device.cal_zero
+  device.sleep
+
+Telemetry:
+  [device=PostureMonitor state=Normal tilt=5.2° neo=green led=off ...]
+```
+
+**The CLI becomes your hardware testing interface** - no need to reflash to test different scenarios!
 
 ---
 
 ## Pre-Flight Checklist
 
-Before starting, verify:
-
 ### Repository State
 ```bash
-# Must be on main branch
 git branch --show-current  # Should show "main"
-
-# Must have clean working directory
 git status  # Should show "nothing to commit, working tree clean"
-
-# Must have latest GDB documentation
-ls -la GDB_*.md  # Should show 3 files
 ```
 
 ### Hardware Available
-- [ ] ESP32-C6 development board (USB-C cable)
-- [ ] LED + 220Ω resistor (Lesson 01)
-- [ ] FTDI UART adapter (Lesson 02)
-- [ ] I2C sensor (BME280, MPU6050, or similar) (Lesson 03)
-- [ ] SPI OLED display (SSD1306 or similar) (Lesson 04)
-- [ ] Servo motor (Lesson 05)
-- [ ] All components for multi-peripheral lesson (Lesson 06)
-- [ ] Breadboard, jumper wires
+- [ ] ESP32-C6-DevKit-C (USB-C cable for USB-JTAG)
+- [ ] MPU6050 I2C sensor + jumper wires
+- [ ] FTDI UART adapter
+- [ ] LED + 220Ω resistor
+- [ ] Breadboard
 
 ### Software Installed
 ```bash
-# Verify tooling
-cargo --version          # Rust installed
-espflash --version       # ESP flashing tool
-probe-rs --version       # Debugging tool
-riscv32-esp-elf-gdb --version  # GDB for RISC-V
-
-# Verify esp-hal version
-cargo search esp-hal     # Should show 1.0.0 or newer
+cargo --version
+espflash --version
+probe-rs --version  # Optional, for advanced GDB
+riscv32-esp-elf-gdb --version  # Optional
+cargo search esp-hal  # Should show 1.0.0+
 ```
-
-**If any checklist item fails**: Stop and fix before proceeding.
 
 ---
 
-## Lesson 01: GPIO + GDB Fundamentals
+## Lesson 01: GPIO Basics + GDB Fundamentals
 
-**Duration**: 60-90 minutes
+**Duration**: 90-120 minutes
 **Complexity**: ⭐⭐☆☆☆
-**Hardware**: ESP32-C6 + LED + 220Ω resistor
+**Hardware**: ESP32-C6-DevKit-C (button + LED)
 
-### Lesson Specification
+### Learning Objectives
 
-From `GDB_LESSON_PLANS.md`:
+**esp-hal 1.0.0 APIs**:
+- GPIO input (button with pull-up)
+- GPIO output (LED control)
+- Basic polling and debouncing
 
-**GDB Techniques (3)**:
-1. Memory inspection/writes - Read/write GPIO registers
-2. GDB variables - Bit math calculator
-3. Function calls - Call Rust functions from GDB
-
-**Commit Structure (3 commits)**:
-- Commit 1: Broken firmware (missing GPIO enable)
-- Commit 2: GDB register control (bit math)
-- Commit 3: Function calls (remote control)
-
-**Wow Moment**: Calling `led_toggle()` from GDB while firmware runs
+**Claude Code + GDB**:
+- Memory inspection (`x/`, `print`)
+- Variable modification (`set`)
+- Function calls from GDB (`call`)
+- Breakpoints and stepping
 
 ### Hardware Setup
 
@@ -113,103 +162,85 @@ ESP32-C6        LED
 --------        ---
 GPIO12     -->  Anode (long leg)
                Cathode (short leg) --> 220Ω resistor --> GND
-GND        -->  GND
+GPIO9      -->  Onboard BOOT button (no wiring needed)
 ```
 
-### Execution
+### Progressive Commits (4 commits)
 
-**Step 1**: Review lesson plan
-```bash
-# Read Lesson 01 section in GDB_LESSON_PLANS.md (lines 1-80)
-```
+**Commit 1: Broken GPIO init** (Bug: Missing GPIO enable)
+- LED initialization incomplete
+- Button reads but LED doesn't respond
+- **Claude uses GDB to**:
+  - Inspect GPIO registers (`x/16x 0x60004000`)
+  - Discover GPIO peripheral not enabled
+  - Call `gpio_enable()` from GDB to test
+  - Fix code
 
-**Step 2**: Test hardware
-```bash
-/test-hardware gpio 12
-```
+**Commit 2: Working button polling** (Bug: No debounce)
+- Button reads, LED toggles... but bounces
+- Multiple toggles per press
+- **Claude uses GDB to**:
+  - Set breakpoint on button read
+  - Step through and observe rapid transitions
+  - Add debounce logic
 
-**Expected output**: LED blinks, confirming GPIO12 works
+**Commit 3: LED control functions**
+- Add `led_on()`, `led_off()`, `led_toggle()` functions
+- **Claude demonstrates**:
+  - Call functions from GDB: `call led_toggle()`
+  - Control LED remotely without code changes
+  - Live firmware interaction
 
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 01: GPIO + GDB Fundamentals"
-```
+**Commit 4: GDB-based register validation**
+- Add assertions for expected GPIO register state
+- **Claude shows**:
+  - After `led_on()`, check `GPIO_OUT_REG` has bit 12 set
+  - Use GDB to validate hardware state matches expectations
+  - **Hardware-based unit testing pattern**
 
-**Agent will**:
-1. Create branch `lesson-01-gpio-gdb`
-2. Copy structure from template
-3. Implement 3 progressive commits:
-   - Commit 1: Broken LED code (missing GPIO enable)
-   - Commit 2: GDB-controlled LED (bit math with `set $mask`)
-   - Commit 3: Add `led_on()`, `led_off()`, `led_toggle()` functions
-4. Create README with commit walkthrough
-5. Request hardware validation
+### Claude Code + GDB Workflow
 
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
-
-Test each commit:
-```bash
-cd lessons/01-gpio-gdb
-
-# Test Commit 1: Broken firmware
-git checkout <commit-1-hash>
-cargo run --release
-# Expected: LED doesn't blink (broken)
-
-# Test Commit 2: GDB control
-git checkout <commit-2-hash>
-cargo run --release
-# In GDB: set $gpio = 12; set $mask = 1 << $gpio; set *(uint32_t*)0x60091008 = $mask
-# Expected: LED turns on via GDB
-
-# Test Commit 3: Function calls
-git checkout <commit-3-hash>
-cargo run --release
-# In GDB: call led_toggle()
-# Expected: LED toggles via GDB
-```
-
-**Step 5**: Confirm validation
-> Type **"yes"** to proceed to PR creation
-
-**Step 6**: Review PR
-
-Agent creates PR for `lesson-01-gpio-gdb` branch.
+**Pattern: Debug → Inspect → Fix → Validate**
+1. Bug: LED doesn't work
+2. GDB inspects GPIO registers, finds missing enable bit
+3. Test fix by calling function from GDB
+4. Apply fix to code
+5. Validate with register assertions
 
 ### Success Criteria
 
-- [ ] All 3 commits build successfully
-- [ ] Commit 1: LED doesn't blink (broken as expected)
-- [ ] Commit 2: LED controllable via GDB memory writes
-- [ ] Commit 3: LED controllable via GDB function calls
-- [ ] README has commit-by-commit walkthrough
-- [ ] PR created and ready for review
+- [ ] All 4 commits build successfully
+- [ ] Commit 1: Claude uses GDB to find missing GPIO enable
+- [ ] Commit 2: Claude adds debounce logic via GDB analysis
+- [ ] Commit 3: Functions callable from GDB
+- [ ] Commit 4: GDB validates register state after function calls
+- [ ] README documents GDB commands used for each bug
 
 ---
 
-## Lesson 02: UART + DMA
+## Lesson 02: UART CLI + Streaming Infrastructure
 
-**Duration**: 90-120 minutes
+**Duration**: 180-240 minutes
 **Complexity**: ⭐⭐⭐☆☆
-**Hardware**: ESP32-C6 + FTDI UART adapter
+**Hardware**: ESP32-C6 + FTDI UART adapter + LED
 
-### Lesson Specification
+### Learning Objectives
 
-From `GDB_LESSON_PLANS.md`:
+**esp-hal 1.0.0 APIs**:
+- UART peripheral configuration
+- DMA for high-throughput streaming
+- Command parsing (simple CLI)
 
-**GDB Techniques (3)**:
-1. Watchpoints - Break when UART FIFO overflows
-2. Conditional breakpoints - Only break on errors
-3. Call stack - Debug panic in ISR
+**Claude Code + GDB**:
+- Mode switching via GDB (CLI ↔ streaming)
+- Watchpoints on buffer overflow
+- Live parameter tuning
 
-**Commit Structure (5 commits)**:
-- Commit 1: UART init (minimal)
-- Commit 2: Add data streaming
-- Commit 3: Introduce DMA
-- Commit 4: Watchpoints for buffer overflow
-- Commit 5: Conditional breakpoints for errors
-
-**Wow Moment**: Watchpoint catches buffer overflow in real-time
+**Real Firmware Pattern**:
+- **CLI Mode**: Interactive command interface (testing/debugging)
+- **Streaming Mode**: High-speed telemetry output (monitoring)
+- **Mode toggle**: Via GDB or command
+- **Hardware unit testing**: CLI commands → GDB validates registers
 
 ### Hardware Setup
 
@@ -217,551 +248,993 @@ From `GDB_LESSON_PLANS.md`:
 ```
 ESP32-C6        FTDI UART
 --------        ---------
-GPIO16 (TX) --> RX
-GPIO17 (RX) --> TX
+GPIO23 (TX) --> RX
+GPIO15 (RX) --> TX
 GND         --> GND
+
+GPIO12     -->  LED + 220Ω resistor (from Lesson 01)
 ```
 
-### Execution
+### CLI Commands (This Lesson)
 
-**Step 1**: Review lesson plan
-```bash
-# Read Lesson 02 section in GDB_LESSON_PLANS.md
+```
+> help
+Commands:
+  gpio.init <pin>     - Initialize GPIO as output
+  gpio.on <pin>       - Set GPIO high
+  gpio.off <pin>      - Set GPIO low
+  gpio.deinit <pin>   - Deinitialize GPIO
+  stream.start        - Start streaming telemetry
+  stream.stop         - Stop streaming (back to CLI)
+  help                - Show commands
+
+> gpio.init 12
+OK [GPIO12 initialized as output]
+
+> gpio.on 12
+OK [GPIO12 = HIGH]
+
+> gpio.off 12
+OK [GPIO12 = LOW]
+
+> stream.start
+[Switching to streaming mode...]
+[gpio12=0 counter=1 uptime_ms=1234]
+[gpio12=0 counter=2 uptime_ms=1334]
+[gpio12=1 counter=3 uptime_ms=1434]
+...
 ```
 
-**Step 2**: Test hardware
-```bash
-/test-hardware uart 16 17
+**Key Innovation**: CLI commands call **real firmware functions** (`gpio_init()`, `gpio_set_high()`, etc.)
+
+After each command, **GDB validates hardware state**:
+- `gpio.init 12` → GDB checks `GPIO_ENABLE_REG` bit 12 = 1
+- `gpio.on 12` → GDB checks `GPIO_OUT_REG` bit 12 = 1
+
+### Progressive Commits (6 commits)
+
+**Commit 1: Basic UART TX** (Bug: Blocking writes)
+- Send "Hello World" over UART
+- Blocking, low throughput
+- **Claude uses GDB to**:
+  - Measure time spent in `uart_write()`
+  - Profile with breakpoints and cycle counters
+
+**Commit 2: CLI parser** (Bug: Buffer overflow on long commands)
+- Parse commands: `gpio.init`, `gpio.on`, `gpio.off`
+- Buffer overflow with >64 char input
+- **Claude uses GDB to**:
+  - Set **watchpoint** on buffer boundary: `watch *(char*)(&cmd_buf[64])`
+  - Catches overflow, adds bounds check
+
+**Commit 3: GPIO control via CLI**
+- Implement `gpio.init`, `gpio.on`, `gpio.off`, `gpio.deinit`
+- Commands call real firmware functions
+- **Hardware-based unit test pattern**:
+  ```
+  > gpio.init 12
+  OK
+  # Claude uses GDB: x/1xw 0x60004008  (GPIO enable register)
+  # Validates: Bit 12 = 1 ✓
+
+  > gpio.on 12
+  OK
+  # Claude uses GDB: x/1xw 0x60004004  (GPIO output register)
+  # Validates: Bit 12 = 1 ✓
+  ```
+
+**Commit 4: Streaming mode** (Bug: DMA misconfiguration)
+- Add `stream.start` command → switch to streaming telemetry
+- Stream GPIO state, counter values at 10 Hz
+- DMA doesn't transfer correctly (wrong buffer alignment)
+- **Claude uses GDB to**:
+  - Inspect DMA descriptor: `print &dma_desc`
+  - Find buffer address not 4-byte aligned
+  - Fix alignment with `#[repr(align(4))]`
+
+**Commit 5: Mode switching via GDB**
+- Add global variable `MODE: u8` (0=CLI, 1=Streaming)
+- **Claude demonstrates**:
+  - Firmware in streaming mode (data flood)
+  - GDB: `set MODE = 0` → switches to CLI without recompile
+  - GDB: `set MODE = 1` → back to streaming
+  - **Live firmware reconfiguration**
+
+**Commit 6: DMA optimization + error handling**
+- Bug: DMA buffer fills faster than transmission rate
+- Overflow drops data
+- **Claude uses GDB to**:
+  - Set **watchpoint** on buffer write pointer
+  - Catches when write overtakes read (overflow condition)
+  - Adds ring buffer overflow protection
+
+### Streaming Telemetry Format
+
+```
+[gpio12=0 gpio_changes=5 counter=123 uptime_ms=12340 mode=streaming]
+[gpio12=1 gpio_changes=6 counter=124 uptime_ms=12440 mode=streaming]
 ```
 
-**Expected output**: UART data visible on serial monitor
+**Parseable by scripts** for automated testing and analysis.
 
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 02: UART + DMA"
-```
+### Claude Code + GDB Workflow
 
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
+**Pattern: Hardware Unit Testing via CLI**
+1. User types: `gpio.init 12`
+2. Firmware calls `gpio_init(12)`
+3. **Claude uses GDB**: `x/1xw 0x60004008` (GPIO enable register)
+4. Expected: Bit 12 = 1
+5. If wrong: GDB catches hardware state mismatch → bug found
+6. Stream validates: `gpio12=0` (initialized but off)
 
-Test each of 5 commits with GDB commands from README.
-
-**Step 5**: Confirm and create PR
+**Pattern: Live Mode Switching**
+1. Firmware in streaming mode (10 Hz data flood)
+2. Want to test CLI command without reflashing
+3. GDB: `set MODE = 0`
+4. Firmware switches to CLI mode
+5. Test command: `gpio.on 12`
+6. GDB validates register
+7. GDB: `set MODE = 1` → back to streaming
+8. Stream shows: `gpio12=1` ✓
 
 ### Success Criteria
 
-- [ ] All 5 commits build successfully
-- [ ] UART streams data correctly
-- [ ] DMA reduces CPU usage
+- [ ] All 6 commits build successfully
+- [ ] CLI commands work: `gpio.init`, `gpio.on`, `gpio.off`, `gpio.deinit`
+- [ ] Commands call real firmware functions (not stubs)
+- [ ] **GDB validates GPIO registers after each command**
+- [ ] Streaming mode outputs telemetry at 10 Hz
+- [ ] Mode switchable via GDB (`set MODE = ...`)
 - [ ] Watchpoint catches buffer overflow
-- [ ] Conditional breakpoint only triggers on errors
-- [ ] README documents all GDB techniques
-- [ ] PR created
+- [ ] DMA alignment issue found and fixed with GDB
+- [ ] **This CLI becomes the testing backbone for all future lessons**
 
 ---
 
-## Lesson 03: I2C + GDB
+## Lesson 03: PWM + Neopixel Drivers (Extend CLI)
 
-**Duration**: 90-120 minutes
+**Duration**: 180-240 minutes
 **Complexity**: ⭐⭐⭐☆☆
-**Hardware**: ESP32-C6 + I2C sensor (BME280 or MPU6050)
+**Hardware**: ESP32-C6 + LED (PWM) + onboard Neopixel + UART adapter
 
-### Lesson Specification
+### Learning Objectives
 
-From `GDB_LESSON_PLANS.md`:
+**esp-hal 1.0.0 APIs**:
+- LEDC peripheral (PWM for LED brightness)
+- RMT peripheral (WS2812 Neopixel timing)
+- Clock configuration and dividers
 
-**GDB Techniques (3)**:
-1. Reverse continue - Rewind to find I2C error cause
-2. Register diff - Compare before/after I2C transactions
-3. Tracepoints - Non-intrusive logging
+**Claude Code + GDB (Advanced)**:
+- **Python GDB scripting** - Automate testing 1000 color combinations
+- **Disassembly** - Inspect RMT timing code for WS2812 protocol violations
+- Debug timing issues (wrong PWM frequency, RMT clock divider)
 
-**Commit Structure (4 commits)**:
-- Commit 1: I2C init (minimal)
-- Commit 2: Read sensor data
-- Commit 3: Add reverse debugging
-- Commit 4: Tracepoints for performance analysis
-
-**Wow Moment**: Reverse debugging to find I2C error root cause
-
-### Hardware Setup
-
-**Wiring** (BME280 example):
-```
-ESP32-C6        BME280
---------        ------
-GPIO6 (SDA) --> SDA
-GPIO7 (SCL) --> SCL
-3.3V        --> VCC
-GND         --> GND
-```
-
-### Execution
-
-**Step 1**: Review lesson plan
-```bash
-# Read Lesson 03 section in GDB_LESSON_PLANS.md
-```
-
-**Step 2**: Test hardware
-```bash
-/test-hardware i2c 6 7
-```
-
-**Expected output**: I2C device detected at address (0x76 for BME280)
-
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 03: I2C + GDB"
-```
-
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
-
-Test each of 4 commits.
-
-**Step 5**: Confirm and create PR
-
-### Success Criteria
-
-- [ ] All 4 commits build successfully
-- [ ] I2C sensor detected and read
-- [ ] Reverse debugging works (requires probe-rs with record/replay)
-- [ ] Register diff shows I2C state changes
-- [ ] Tracepoints log without stopping execution
-- [ ] README documents techniques
-- [ ] PR created
-
----
-
-## Lesson 04: SPI + OLED
-
-**Duration**: 120-150 minutes
-**Complexity**: ⭐⭐⭐⭐☆
-**Hardware**: ESP32-C6 + SPI OLED display (SSD1306)
-
-### Lesson Specification
-
-From `GDB_LESSON_PLANS.md`:
-
-**GDB Techniques (3)**:
-1. Python scripting - Automate register inspection
-2. Macro debugger - Custom GDB commands
-3. Memory compare - Verify framebuffer updates
-
-**Commit Structure (5 commits)**:
-- Commit 1: SPI init (minimal)
-- Commit 2: OLED initialization sequence
-- Commit 3: Framebuffer rendering
-- Commit 4: Python GDB script for auto-inspection
-- Commit 5: Custom GDB macros
-
-**Wow Moment**: Python script auto-inspects SPI transactions
-
-### Hardware Setup
-
-**Wiring** (SSD1306 SPI example):
-```
-ESP32-C6        SSD1306 OLED
---------        ------------
-GPIO18 (MOSI)-->  SDA (MOSI)
-GPIO19 (SCK) -->  SCK
-GPIO20 (CS)  -->  CS
-GPIO21 (DC)  -->  DC
-GPIO22 (RST) -->  RES
-3.3V         -->  VCC
-GND          -->  GND
-```
-
-### Execution
-
-**Step 1**: Review lesson plan
-
-**Step 2**: Test hardware
-```bash
-/test-hardware spi 18 19 20
-```
-
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 04: SPI + OLED"
-```
-
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
-
-**Step 5**: Confirm and create PR
-
-### Success Criteria
-
-- [ ] All 5 commits build successfully
-- [ ] OLED displays graphics
-- [ ] Python GDB script works
-- [ ] Custom GDB macros simplify debugging
-- [ ] Memory compare verifies framebuffer
-- [ ] README includes Python scripts
-- [ ] PR created
-
----
-
-## Lesson 05: PWM + Servo
-
-**Duration**: 90-120 minutes
-**Complexity**: ⭐⭐⭐☆☆
-**Hardware**: ESP32-C6 + servo motor
-
-### Lesson Specification
-
-From `GDB_LESSON_PLANS.md`:
-
-**GDB Techniques (3)**:
-1. Disassembly - Inspect PWM timer assembly
-2. Instruction stepping - Step through ISR
-3. Performance analysis - Measure ISR timing
-
-**Commit Structure (4 commits)**:
-- Commit 1: PWM init (minimal)
-- Commit 2: Servo control (angle setting)
-- Commit 3: Disassembly inspection
-- Commit 4: Performance profiling
-
-**Wow Moment**: Disassembly reveals PWM timer optimization
+**Intentional Bugs**:
+1. PWM frequency wrong (forgot prescaler)
+2. Neopixel shows wrong colors (RGB vs GRB byte order)
+3. Neopixel flickers (RMT clock divider miscalculated)
 
 ### Hardware Setup
 
 **Wiring**:
 ```
-ESP32-C6        Servo
---------        -----
-GPIO23 (PWM)-->  Signal (orange/yellow)
-5V          -->  VCC (red)
-GND         -->  GND (brown/black)
+ESP32-C6        LED
+--------        ---
+GPIO12     -->  Anode (long leg) [same as previous lessons]
+               Cathode (short leg) --> 220Ω resistor --> GND
+
+GPIO8      -->  Onboard Neopixel (no wiring needed)
+
+GPIO23/15  -->  FTDI UART [same as Lesson 02]
 ```
 
-### Execution
+### Extended CLI Commands
 
-**Step 1**: Review lesson plan
-
-**Step 2**: Test hardware
-```bash
-/test-hardware pwm 23
+**From Lesson 02** (still available):
+```
+gpio.init, gpio.on, gpio.off, stream.start, stream.stop
 ```
 
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 05: PWM + Servo"
+**New in Lesson 03**:
+```
+> pwm.init <pin> <freq_hz>
+> pwm.duty <pin> <percent>
+> pwm.deinit <pin>
+> neo.init <pin>
+> neo.color <r> <g> <b>
+> neo.off <pin>
+> stream.start
 ```
 
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
+**Example session**:
+```
+> pwm.init 12 1000
+OK [PWM initialized on GPIO12 at 1000 Hz]
 
-**Step 5**: Confirm and create PR
+> pwm.duty 12 50
+OK [PWM duty cycle = 50%]
 
-### Success Criteria
+> neo.init 8
+OK [Neopixel initialized on GPIO8]
 
-- [ ] All 4 commits build successfully
-- [ ] Servo moves to commanded angles
-- [ ] Disassembly shows PWM timer code
-- [ ] Instruction stepping works in ISR
-- [ ] Performance analysis measures timing
-- [ ] README documents techniques
-- [ ] PR created
+> neo.color 255 0 0
+OK [Neopixel = RED]
 
----
-
-## Lesson 06: Multi-Peripheral Integration
-
-**Duration**: 120-180 minutes
-**Complexity**: ⭐⭐⭐⭐☆
-**Hardware**: ESP32-C6 + LED + UART + I2C sensor + OLED
-
-### Lesson Specification
-
-From `GDB_LESSON_PLANS.md`:
-
-**GDB Techniques (3)**:
-1. Core dumps - Save state for post-mortem analysis
-2. Remote memory - Inspect while running
-3. Checkpoint/restore - Save/resume execution state
-
-**Commit Structure (5 commits)**:
-- Commit 1: Multi-peripheral init (GPIO + UART + I2C + SPI)
-- Commit 2: Sensor data pipeline (I2C → processing → OLED)
-- Commit 3: Core dump on panic
-- Commit 4: Remote memory inspection
-- Commit 5: Checkpoint/restore workflow
-
-**Wow Moment**: Core dump captures state at crash, analyze offline
-
-### Hardware Setup
-
-**Wiring**: Combines all previous lessons
-- GPIO12: LED
-- GPIO16/17: UART
-- GPIO6/7: I2C sensor
-- GPIO18-22: SPI OLED
-
-### Execution
-
-**Step 1**: Review lesson plan
-
-**Step 2**: Test hardware (multi-peripheral)
-```bash
-# Test each peripheral individually first
-/test-hardware gpio 12
-/test-hardware uart 16 17
-/test-hardware i2c 6 7
-/test-hardware spi 18 19 20
+> stream.start
+[pwm12=50% pwm_freq=1000 neo_r=255 neo_g=0 neo_b=0 uptime_ms=5678]
 ```
 
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 06: Multi-Peripheral Integration"
-```
+**Hardware validation after each command**:
+- `pwm.init 12 1000` → GDB checks LEDC timer register for 1 kHz config
+- `neo.color 255 0 0` → GDB checks RMT buffer has GRB sequence (not RGB)
 
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
+### Progressive Commits (6 commits)
 
-**Step 5**: Confirm and create PR
+**Commit 1: PWM init** (Bug: Wrong frequency)
+- Goal: 1 kHz PWM for LED brightness
+- Actual: 80 kHz (forgot prescaler)
+- LED barely dims, flickers at high duty cycles
+- **Claude uses GDB to**:
+  - Inspect LEDC timer registers: `x/8xw 0x60006000`
+  - Calculate actual frequency: `APB_CLK / (prescaler * timer_max)`
+  - Find prescaler = 1 (should be 80 for 1 kHz from 80 MHz APB)
+  - Test fix via GDB: `set ledc.timer.div_num = 80`
+  - Confirm LED brightness now smooth
 
-### Success Criteria
+**Commit 2: PWM duty cycle control + CLI**
+- Add `pwm.init <pin> <freq>` and `pwm.duty <pin> <percent>` commands
+- **Claude demonstrates**:
+  - CLI: `pwm.duty 12 75`
+  - GDB validates: LEDC duty register = 75% of max
+  - LED brightness changes
+  - Stream confirms: `pwm12=75%`
 
-- [ ] All 5 commits build successfully
-- [ ] All peripherals work together
-- [ ] Core dump generated on panic
-- [ ] Remote memory inspection works while running
-- [ ] Checkpoint/restore saves and resumes state
-- [ ] README documents workflow
-- [ ] PR created
+**Commit 3: Neopixel driver** (Bug: Wrong color order)
+- Goal: `neo.color 255 0 0` → red
+- Actual: Shows green
+- RGB vs GRB byte order (WS2812 expects GRB)
+- **Claude uses GDB to**:
+  - Set breakpoint before RMT send
+  - Inspect color buffer: `x/3xb &color_buf`
+  - See: `[0xFF, 0x00, 0x00]` (RGB)
+  - WS2812 expects: `[0x00, 0xFF, 0x00]` (GRB for red)
+  - Fix byte order in driver
 
----
+**Commit 4: Neopixel flickering** (Bug: RMT timing violation)
+- `neo.color` works but Neopixel flickers, shows random colors
+- RMT clock divider wrong → bit timing violates WS2812 spec
+- **Claude uses GDB with DISASSEMBLY**:
+  - `disas rmt_send_pulse`
+  - Inspect RMT clock config: `x/4xw 0x60006800`
+  - Calculate bit timing: `APB_CLK / divider / 32`
+  - WS2812 requires: 1.25 µs per bit (800 kHz)
+  - Current: `80 MHz / 1 / 32 = 2.5 MHz` (too fast!)
+  - Should be: `80 MHz / 2 / 32 = 1.25 MHz` ✓
+  - Fix divider: `set rmt.clock_div = 2`
 
-## Lesson 07: Production Debugging
+**Commit 5: Python GDB script for color testing**
+- **Advanced GDB**: Python script to test color accuracy
+- Script sets 100 random RGB values, validates Neopixel output
+- **GDB Python script**:
+  ```python
+  import gdb
+  import random
 
-**Duration**: 150-240 minutes
-**Complexity**: ⭐⭐⭐⭐⭐
-**Hardware**: ESP32-C6 + all peripherals
+  class TestNeopixelColors(gdb.Command):
+      def invoke(self, arg, from_tty):
+          for i in range(100):
+              r, g, b = random.randint(0,255), random.randint(0,255), random.randint(0,255)
+              gdb.execute(f"call neo_set_color({r}, {g}, {b})")
+              # Read back from RMT buffer and validate
+              buf = gdb.parse_and_eval("rmt_buffer")
+              actual_g = int(buf[0])
+              actual_r = int(buf[1])
+              actual_b = int(buf[2])
+              if actual_r != r or actual_g != g or actual_b != b:
+                  print(f"FAIL: Expected ({r},{g},{b}), got ({actual_r},{actual_g},{actual_b})")
+              else:
+                  print(f"PASS: ({r},{g},{b})")
 
-### Lesson Specification
+  TestNeopixelColors()
+  ```
+- **Claude uses**: `source test_neo.py` → `test-neopixel-colors`
+- Automates testing, catches edge cases
 
-From `GDB_LESSON_PLANS.md`:
+**Commit 6: Unified streaming telemetry**
+- Stream PWM + Neopixel state to UART
+- Format: `[pwm12=50% pwm_freq=1000 neo_r=128 neo_g=0 neo_b=255]`
+- **Claude demonstrates full workflow**:
+  1. CLI: `pwm.duty 12 75`
+  2. GDB validates LEDC register
+  3. Stream confirms: `pwm12=75%`
+  4. CLI: `neo.color 0 255 0`
+  5. GDB validates RMT buffer (GRB order)
+  6. Stream confirms: `neo_r=0 neo_g=255 neo_b=0`
 
-**GDB Techniques (3)**:
-1. Automated test harness - GDB scripts for regression testing
-2. Trace analysis - Record and replay execution
-3. Historical debugging - Time-travel debugging
+### Claude Code + GDB Workflow
 
-**Commit Structure (6 commits)**:
-- Commit 1: Production firmware with intentional bugs
-- Commit 2: GDB test harness setup
-- Commit 3: Automated regression tests
-- Commit 4: Trace recording
-- Commit 5: Historical debugging workflow
-- Commit 6: Full debugging toolkit
+**Pattern: Timing Bug Detective with Disassembly**
+1. Symptom: Neopixel flickers
+2. GDB disassembles RMT code: `disas rmt_send_pulse`
+3. Inspects RMT clock register: `x/1xw 0x60006804`
+4. Calculates bit timing from APB clock and divider
+5. Finds timing violation (too fast for WS2812)
+6. Fixes clock divider via GDB, validates with oscilloscope/timing
 
-**Wow Moment**: Time-travel debugging finds race condition
-
-### Hardware Setup
-
-**Wiring**: Full system (all peripherals from Lessons 01-06)
-
-### Execution
-
-**Step 1**: Review lesson plan
-
-**Step 2**: Test hardware (full system)
-
-**Step 3**: Generate lesson
-```bash
-/gen-lesson "Create Lesson 07: Production Debugging"
-```
-
-**Step 4**: Validate hardware (USER ACTION REQUIRED)
-
-**Step 5**: Confirm and create PR
+**Pattern: Automated Testing with Python GDB**
+1. Need to test 1000 color combinations (tedious manually)
+2. Write Python GDB script to automate
+3. Script calls `neo_set_color()` with random RGB
+4. Script validates RMT buffer has correct GRB sequence
+5. Catches edge cases humans would miss
 
 ### Success Criteria
 
 - [ ] All 6 commits build successfully
-- [ ] Test harness automates debugging
-- [ ] Trace recording captures execution
-- [ ] Historical debugging works
-- [ ] Time-travel debugging finds bugs
-- [ ] README documents production workflow
-- [ ] PR created
+- [ ] PWM frequency bug found via GDB register inspection
+- [ ] RGB vs GRB byte order issue discovered and fixed
+- [ ] RMT clock divider bug diagnosed with disassembly
+- [ ] Python GDB script automates color testing
+- [ ] CLI commands work: `pwm.*`, `neo.*`
+- [ ] GDB validates registers after each CLI command
+- [ ] Streaming telemetry includes PWM + Neopixel state
+- [ ] README documents each bug and GDB techniques used
+
+---
+
+## Lesson 04: MPU6050 Driver + State Machine (Extend CLI)
+
+**Duration**: 240-300 minutes
+**Complexity**: ⭐⭐⭐⭐☆
+**Hardware**: ESP32-C6 + MPU6050 IMU + Button + LED + Neopixel + UART
+
+### Learning Objectives
+
+**esp-hal 1.0.0 APIs**:
+- I2C peripheral configuration
+- MPU6050 register map (accelerometer, gyroscope)
+- Interrupt handling (button)
+- State machines in embedded systems
+
+**Claude Code + GDB (Advanced)**:
+- **Conditional breakpoints** - Break only on I2C errors
+- **Tracepoints** - Profile I2C transaction frequency without stopping
+- I2C bus debugging (clock stretching, ACK/NAK)
+- State machine visualization and forced transitions
+
+**Real Firmware Pattern**:
+- Button-controlled state machine: Sleep → Monitoring → Calibrating
+- State-dependent behavior (different peripherals active per state)
+- Telemetry includes state + sensor data
+
+### Hardware Setup
+
+**Wiring**:
+```
+ESP32-C6        MPU6050
+--------        -------
+GPIO2 (SDA) --> SDA
+GPIO11 (SCL)--> SCL
+3.3V        --> VCC
+GND         --> GND
+
+GPIO9       --> Onboard BOOT button
+GPIO12      --> LED (PWM, from previous lessons)
+GPIO8       --> Neopixel (from previous lessons)
+GPIO23/15   --> FTDI UART (from previous lessons)
+```
+
+### Extended CLI Commands
+
+**From Lessons 02-03** (still available):
+```
+gpio.*, pwm.*, neo.*, stream.*
+```
+
+**New in Lesson 04**:
+```
+> imu.init
+> imu.whoami
+> imu.read
+> imu.cal
+> state.get
+> state.set <sleep|monitoring|calibrating>
+> stream.start
+```
+
+**Example session**:
+```
+> imu.init
+OK [MPU6050 initialized at 0x68]
+
+> imu.whoami
+WHO_AM_I = 0x68 ✓
+
+> imu.read
+accel: x=245 y=-12 z=16384  gyro: x=3 y=-8 z=1
+
+> imu.cal
+Calibrating... [samples=100/100] Offsets: ax=2 ay=1 az=-4
+OK [Calibration complete]
+
+> state.set monitoring
+OK [State = Monitoring]
+
+> stream.start
+[state=Monitoring imu_ax=245 imu_ay=-12 imu_az=16380 neo=green]
+```
+
+**Hardware validation**:
+- `imu.init` → GDB checks I2C peripheral registers (clock config, enable bit)
+- `imu.read` → GDB validates I2C buffer has 14 bytes (6 accel + 6 gyro + 2 temp)
+
+### State Machine Design
+
+```
+      ┌─────────┐
+      │  Sleep  │ (Button press)
+      └────┬────┘        ↓
+           │       ┌──────────┐
+           │       │Monitoring│ (Button press)
+           │       └────┬─────┘       ↓
+           │            │       ┌────────────┐
+           └────────────┘       │Calibrating │
+                                └──────┬─────┘
+                                       │ (Auto after 5s or 100 samples)
+                                       ↓
+                                  [Back to Monitoring]
+```
+
+**State-dependent behavior**:
+- **Sleep**: I2C off, Neopixel off, LED off
+- **Monitoring**: I2C active (10 Hz reads), Neopixel shows status
+- **Calibrating**: I2C active (100 Hz reads), Neopixel pulses, collect offset samples
+
+### Progressive Commits (7 commits)
+
+**Commit 1: I2C init + device scan** (Bug: Wrong I2C speed)
+- Goal: Detect MPU6050 at 0x68
+- Actual: No ACK (device not found)
+- I2C speed set to 1 MHz, MPU6050 supports max 400 kHz
+- **Claude uses GDB to**:
+  - Inspect I2C clock config: `x/8xw 0x60013000`
+  - Calculate actual I2C freq from prescaler/divider
+  - Find: `APB_CLK / prescaler = 1 MHz` (too fast!)
+  - Fix: Set I2C to 100 kHz (safe default)
+  - GDB validates: `imu.init` → WHO_AM_I reads 0x68 ✓
+
+**Commit 2: Read WHO_AM_I register**
+- Add `imu.whoami` command
+- **Claude uses GDB to**:
+  - Set breakpoint after I2C read
+  - Inspect buffer: `x/1xb &who_am_i_buf`
+  - Validate: 0x68 (correct per datasheet)
+
+**Commit 3: Read accel/gyro data** (Bug: Axis swap)
+- Add `imu.read` command
+- Bug: Tilting forward shows Z-axis change (should be Y)
+- **Claude uses GDB to**:
+  - Inspect raw I2C buffer: `x/14xb &i2c_buf`
+  - Compare to MPU6050 register map (datasheet)
+  - Find: Reading registers in wrong order
+  - Fix register address sequence
+  - Validate: Tilt forward → Y-axis changes ✓
+
+**Commit 4: Button state machine**
+- Button press cycles: Sleep → Monitoring → Calibrating → Monitoring
+- **Claude uses GDB to**:
+  - Force state transitions: `set state = STATE_MONITORING`
+  - Observe behavior without button presses
+  - Validate state machine logic
+  - Find bug: Missing transition from Calibrating back to Monitoring
+  - Fix transition logic
+
+**Commit 5: Calibration mode** (Bug: Overflow in averaging)
+- Collect 100 samples, compute average offset
+- Bug: Overflow when summing accel values (i16 samples, i16 accumulator)
+- **Claude uses GDB with CONDITIONAL BREAKPOINT**:
+  - `break calibration_loop if accel_sum < 0 && sample_count < 50`
+  - Catches overflow (sum goes negative unexpectedly)
+  - Inspect: `print accel_sum` → wraps at ~32767
+  - Fix: Use i32 accumulator
+
+**Commit 6: I2C error handling** (Bug: No timeout on clock stretch)
+- I2C occasionally hangs (sensor holds SCL low)
+- **Claude uses GDB with CONDITIONAL BREAKPOINT**:
+  - `break i2c_read if status == I2C_TIMEOUT`
+  - Catches timeout condition
+  - Inspect I2C status register: `x/1xw 0x60013004`
+  - Find: Clock stretch timeout not configured
+  - Add timeout recovery logic
+
+**Commit 7: Tracepoints for performance profiling**
+- **Advanced GDB**: Use tracepoints to profile I2C transaction rate
+- **Tracepoint** (logs without stopping execution):
+  ```
+  (gdb) trace i2c_read_accel
+  (gdb) actions
+  > collect $pc, sample_count
+  > end
+  (gdb) tstart
+  [Firmware runs...]
+  (gdb) tstop
+  (gdb) tfind start
+  (gdb) info tracepoints
+  ```
+- **Claude uses** to measure:
+  - I2C transaction frequency (should be 10 Hz in Monitoring)
+  - Timing jitter (variance between reads)
+  - Optimize read rate without stopping firmware
+
+### Streaming Telemetry Format
+
+```
+[state=Sleep neo=off led=off i2c_disabled=1]
+[state=Monitoring imu_ax=245 imu_ay=-12 imu_az=16384 imu_gx=3 imu_gy=-8 imu_gz=1 neo=green]
+[state=Calibrating samples=45/100 sum_ax=11025 neo=pulsing]
+[state=Monitoring [CALIBRATED] imu_ax=2 imu_ay=0 imu_az=16380 neo=green]
+```
+
+### Claude Code + GDB Workflow
+
+**Pattern: I2C Bus Debugging with Conditional Breakpoints**
+1. Symptom: I2C occasionally returns 0xFF (NAK or timeout)
+2. Too rare to catch with normal breakpoint
+3. **Conditional breakpoint**: `break i2c_read if ret != I2C_OK`
+4. GDB breaks only on failure
+5. Inspect I2C status: `x/1xw 0x60013004`
+6. Find: Clock stretch timeout
+7. Fix: Increase timeout, add recovery logic
+
+**Pattern: State Machine Debugging**
+1. State doesn't transition from Calibrating to Monitoring
+2. GDB: `set state = STATE_CALIBRATING`
+3. GDB: Set breakpoint on state transition code
+4. Step through logic
+5. Find: Missing condition check
+6. Fix: Add `if samples >= 100 { state = Monitoring; }`
+
+**Pattern: Performance Profiling with Tracepoints**
+1. Need to measure I2C transaction rate
+2. Normal breakpoints would disrupt timing
+3. **Tracepoint**: Logs without stopping
+4. `trace i2c_read_accel`, `actions`, `collect $pc, timestamp`
+5. Analyze trace data offline
+6. Find: Actual rate = 9.7 Hz (should be 10 Hz)
+7. Fix timing in main loop
+
+### Success Criteria
+
+- [ ] All 7 commits build successfully
+- [ ] I2C frequency bug found via register inspection
+- [ ] WHO_AM_I reads correctly (0x68)
+- [ ] Axis swap bug diagnosed and fixed
+- [ ] State machine transitions correctly
+- [ ] Calibration overflow bug caught with conditional breakpoint
+- [ ] I2C timeout bug found and fixed
+- [ ] Tracepoints measure I2C performance without stopping
+- [ ] CLI commands work: `imu.*`, `state.*`
+- [ ] GDB validates I2C registers after each command
+- [ ] Streaming telemetry includes state + sensor data
+
+---
+
+## Lesson 05: Posture Monitor Device (Full Integration)
+
+**Duration**: 300-420 minutes
+**Complexity**: ⭐⭐⭐⭐⭐
+**Hardware**: ESP32-C6 + all peripherals (LED, Neopixel, Button, MPU6050, UART)
+
+### Device Specification
+
+**Name**: Posture/Orientation Monitor
+**Purpose**: Alert user when device tilts beyond safe angle (desk mount, posture reminder, tilt alarm)
+
+**Behavior**:
+- **Normal** (0-30° tilt): Neopixel green, LED off
+- **Warning** (30-60° tilt): Neopixel yellow, LED slow blink (1 Hz)
+- **Alert** (>60° tilt): Neopixel red, LED fast blink (5 Hz)
+- **Button short press**: Calibrate "zero" orientation (current position = 0°)
+- **Button long press** (3s): Enter sleep mode (all off)
+- **Sleep** + button press: Wake up → Calibrating → Monitoring
+
+### Full CLI (All Previous Commands Available)
+
+**From Lessons 02-04** (for testing/debugging):
+```
+gpio.*, pwm.*, neo.*, imu.*, state.*, stream.*
+```
+
+**New in Lesson 05** (device-level commands):
+```
+> device.start
+> device.cal_zero
+> device.sleep
+> device.wake
+> device.status
+> stream.start
+```
+
+**Example testing session**:
+```
+> device.start
+OK [Posture Monitor started - state=Normal]
+
+> device.status
+Device: Posture Monitor
+State: Normal (tilt=5.2°)
+Neopixel: GREEN
+LED: OFF
+Thresholds: Warning=30° Alert=60°
+
+> device.cal_zero
+OK [Zero orientation calibrated]
+
+# Manual testing without tilting device:
+> state.set warning
+OK [Forced WARNING state]
+# Neopixel turns yellow, LED blinks 1 Hz
+
+> imu.read
+accel: x=8450 y=3200 z=12000 (tilt=42.8°)
+
+> stream.start
+[device=PostureMonitor state=Warning tilt=42.8° neo=yellow led=blink_1hz ...]
+```
+
+**The CLI enables complete device testing without physical interaction!**
+
+### Nested State Machine
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                     DEVICE_ACTIVE                           │
+│  ┌────────┐  (tilt>30°)  ┌─────────┐ (tilt>60°) ┌───────┐ │
+│  │ Normal │─────────────→│ Warning │───────────→│ Alert │ │
+│  └────┬───┘              └────┬────┘            └───┬───┘ │
+│       │                       │                     │     │
+│       └───────────────────────┴─────────────────────┘     │
+│                   (tilt corrected)                         │
+└────────────────────────────┬───────────────────────────────┘
+                             │
+                      (Button long press)
+                             ↓
+                      ┌────────────┐
+                      │   SLEEP    │
+                      └─────┬──────┘
+                            │ (Button press)
+                            ↓
+                      ┌─────────────┐
+                      │ CALIBRATING │ (5s or 100 samples)
+                      └──────┬──────┘
+                             │
+                             ↓
+                         [Normal]
+```
+
+### Progressive Commits (8 commits)
+
+**Commit 1: Multi-peripheral init**
+- Initialize all peripherals: LED (PWM), Neopixel, MPU6050, Button, UART
+- Basic integration test: All respond to CLI commands
+- **Claude validates** via CLI + GDB:
+  ```
+  > pwm.init 12 1000
+  > neo.init 8
+  > imu.init
+  # GDB validates each peripheral's registers
+  ```
+
+**Commit 2: Tilt calculation** (Bug: Wrong axis for tilt)
+- Calculate tilt from accelerometer: `tilt = atan2(sqrt(x² + y²), z)`
+- Bug: Using wrong axes (yaw instead of pitch/roll)
+- **Claude uses GDB to**:
+  - Print raw accel while tilting: `print imu_ax, imu_ay, imu_az`
+  - See which axis changes (X for roll, Y for pitch)
+  - Fix formula to use correct axes
+  - Validate: Tilt forward → Y changes, tilt calculation correct
+
+**Commit 3: Nested state machine** (Bug: Backward transitions missing)
+- Implement Normal → Warning → Alert based on tilt
+- Bug: Device stuck in Alert even after correcting tilt
+- **Claude uses GDB with WATCHPOINT**:
+  - `watch state`
+  - Catches all state changes
+  - Force tilt: `set tilt_angle = 25.0` (should go to Normal)
+  - Breakpoint doesn't trigger → missing transition logic
+  - Fix: Add backward transitions (Alert → Warning → Normal)
+
+**Commit 4: Button calibration** (Bug: Offsets not applied)
+- Short press: Store current orientation as "zero"
+- Bug: Calibration runs but tilt still shows non-zero when level
+- **Claude uses GDB to**:
+  - After calibration: `print cal_offset_x, cal_offset_y, cal_offset_z`
+  - Offsets stored correctly: `cal_offset_x=245, cal_offset_y=-12, cal_offset_z=-4`
+  - Inspect tilt calculation code
+  - Find: Offsets read but not subtracted from raw values
+  - Fix: Apply offsets before tilt calculation
+
+**Commit 5: LED blink rate control**
+- Normal: LED off
+- Warning: 1 Hz blink
+- Alert: 5 Hz blink
+- Implement via PWM duty cycle modulation
+- **Claude uses GDB to**:
+  - Force states: `set state = STATE_ALERT`
+  - Validate LED blink rate via UART telemetry
+  - Stream shows: `led_freq=5.0` ✓
+
+**Commit 6: Sleep mode** (Bug: Power not reduced)
+- Long press (3s): Enter sleep mode
+- Bug: Sleep mode doesn't reduce power (I2C still polling)
+- **Claude uses GDB with TRACEPOINT**:
+  - `trace i2c_read_accel`
+  - `tstart`
+  - Enter sleep mode
+  - `tstop`, `tfind`
+  - Find: I2C still being called in sleep state!
+  - Fix: Skip I2C reads when `state == SLEEP`
+  - Validate: Tracepoint shows 0 calls in sleep
+
+**Commit 7: Race condition** (Bug: Button ISR vs main loop)
+- Intermittent: Device shows invalid state (e.g., `state=255`)
+- Happens ~1/500 button presses
+- **Claude uses GDB with WATCHPOINT**:
+  - `watch -l state`
+  - Catches write from unexpected location
+  - Backtrace shows: Button ISR writes while main loop reads
+  - **Race condition** between ISR and main loop
+  - Fix: Use atomic operations or disable interrupts during read
+
+**Commit 8: Statistical anomaly detection** (Bug: I2C error spikes)
+- Stream telemetry includes event counters: `i2c_ok`, `i2c_fail`, `btn_presses`
+- **Claude analyzes UART stream**:
+  - Parses 10,000 telemetry samples
+  - Detects pattern: `i2c_fail` spikes when `btn_presses` increases
+  - Hypothesis: Button ISR disables interrupts too long, I2C times out
+  - **Validates with GDB**:
+    - Measure ISR duration with cycle counter
+    - Find ISR takes 50 µs (too long!)
+    - Optimize ISR → I2C errors disappear
+
+### Streaming Telemetry (JSON Format)
+
+```json
+{"ts":12345,"dev":"PostureMonitor","state":"Normal","tilt":5.2,"neo":"green","led":"off","i2c_ok":9823,"i2c_fail":2,"btn":45}
+{"ts":12346,"dev":"PostureMonitor","state":"Normal","tilt":5.3,"neo":"green","led":"off","i2c_ok":9824,"i2c_fail":2,"btn":45}
+{"ts":12347,"dev":"PostureMonitor","state":"Warning","tilt":35.1,"neo":"yellow","led":"blink_1hz","i2c_ok":9825,"i2c_fail":2,"btn":45}
+[ERROR] i2c_timeout addr=0x68 scl_stuck=1
+{"ts":12348,"dev":"PostureMonitor","state":"Warning","tilt":35.2,"neo":"yellow","led":"blink_1hz","i2c_ok":9825,"i2c_fail":3,"btn":45}
+```
+
+**Parseable by scripts** for automated validation and statistical analysis.
+
+### Claude Code + GDB Workflow (All Advanced Techniques)
+
+**Pattern 1: Watchpoint for Race Condition**
+1. Intermittent bug: `state` shows invalid value
+2. **Watchpoint**: `watch -l state`
+3. GDB breaks on every write
+4. Catches write from button ISR while main loop reads
+5. Backtrace shows race condition
+6. Fix: Atomic operations
+
+**Pattern 2: Tracepoint for Power Profiling**
+1. Sleep mode should reduce power
+2. **Tracepoint**: `trace i2c_read_accel`
+3. Logs calls without stopping firmware
+4. Analysis shows I2C still called in sleep
+5. Fix: Add state check before I2C reads
+
+**Pattern 3: Statistical Anomaly Detection**
+1. UART streams JSON telemetry
+2. Claude parses 10,000 samples
+3. Detects correlation: Button presses → I2C errors
+4. GDB validates hypothesis (ISR too long)
+5. Fix reduces I2C error rate to 0%
+
+**Pattern 4: Python GDB for Automated Testing**
+```python
+# GDB script to test all state transitions
+class TestPostureMonitor(gdb.Command):
+    def invoke(self, arg, from_tty):
+        states = ["Normal", "Warning", "Alert"]
+        tilts = [15.0, 45.0, 75.0]
+
+        for state, tilt in zip(states, tilts):
+            gdb.execute(f"set tilt_angle = {tilt}")
+            actual_state = gdb.parse_and_eval("state")
+            expected = states.index(state)
+            if int(actual_state) == expected:
+                print(f"PASS: tilt={tilt}° → {state}")
+            else:
+                print(f"FAIL: tilt={tilt}° expected {state}, got {actual_state}")
+
+TestPostureMonitor()
+```
+
+### Success Criteria
+
+- [ ] All 8 commits build successfully
+- [ ] All peripherals work together (LED, Neopixel, IMU, Button)
+- [ ] Tilt calculation correct (validated with GDB)
+- [ ] State transitions: Normal → Warning → Alert → Normal
+- [ ] Button calibrates zero orientation
+- [ ] Button long press enters sleep mode
+- [ ] Sleep mode reduces power (tracepoint validates no I2C calls)
+- [ ] Race condition caught with watchpoint and fixed
+- [ ] Statistical analysis detects I2C error pattern
+- [ ] **Device is fully functional and useful** (can mount on desk, use as posture reminder)
+- [ ] CLI enables complete testing without physical interaction
+- [ ] UART streams parseable JSON telemetry
+- [ ] Python GDB scripts automate state transition testing
 
 ---
 
 ## Post-Lesson Workflow
 
-After each lesson is complete:
+After each lesson:
 
 ### 1. Merge PR to Main
 
 ```bash
-# Review PR
 gh pr view <PR-number>
-
-# Merge PR
 gh pr merge <PR-number> --squash
-
-# Update local main
 git checkout main
 git pull origin main
 ```
 
 ### 2. Update Progress Tracker
 
-**Track completion** in project README or tracking document:
-
 ```markdown
-## GDB Lesson Curriculum Progress
+## esp-hal 1.0.0 + Claude Code Curriculum Progress
 
-- [x] Lesson 01: GPIO + GDB Fundamentals (⭐⭐☆☆☆)
-- [ ] Lesson 02: UART + DMA (⭐⭐⭐☆☆)
-- [ ] Lesson 03: I2C + GDB (⭐⭐⭐☆☆)
-- [ ] Lesson 04: SPI + OLED (⭐⭐⭐⭐☆)
-- [ ] Lesson 05: PWM + Servo (⭐⭐⭐☆☆)
-- [ ] Lesson 06: Multi-Peripheral (⭐⭐⭐⭐☆)
-- [ ] Lesson 07: Production Debug (⭐⭐⭐⭐⭐)
+- [x] Lesson 01: GPIO Basics + GDB Fundamentals (⭐⭐☆☆☆)
+- [x] Lesson 02: UART CLI + Streaming Infrastructure (⭐⭐⭐☆☆)
+- [ ] Lesson 03: PWM + Neopixel Drivers (⭐⭐⭐☆☆)
+- [ ] Lesson 04: MPU6050 + State Machine (⭐⭐⭐⭐☆)
+- [ ] Lesson 05: Posture Monitor Device (⭐⭐⭐⭐⭐)
 ```
 
-### 3. Clean Up
+### 3. Hardware Validation Checklist
+
+Each lesson must be tested on real hardware:
+- Build without warnings
+- Flash successfully
+- All CLI commands work
+- Hardware behaves as expected
+- GDB techniques work as documented
+- UART telemetry parseable
+
+### 4. Clean Up
 
 ```bash
-# Delete merged branch (optional)
 git branch -d lesson-{NN}-{name}
 git push origin --delete lesson-{NN}-{name}
 ```
-
-### 4. Move to Next Lesson
-
-Return to main branch and proceed:
-```bash
-git checkout main
-git pull origin main
-# Ready for next lesson
-```
-
----
-
-## Checkpoint Strategy
-
-**After each lesson completes**:
-1. Merge PR to main
-2. Update progress tracker
-3. Take a break (15-30 minutes)
-4. Review next lesson specification in `GDB_LESSON_PLANS.md`
-5. Proceed to next lesson
-
-**If blocked**:
-- Hardware not working → Use `/test-hardware` to troubleshoot
-- Code not building → Review esp-hal 1.0.0 docs
-- GDB issues → Consult `GDB_REFERENCE.md`
-- Unclear requirements → Review `GDB_LESSON_PLANS.md`
 
 ---
 
 ## Key Principles
 
-### 1. Sequential Execution
+### 1. Progressive Infrastructure (Not Throwaway Code)
 
-**Must complete lessons in order**:
-- Lesson 02 builds on Lesson 01 concepts
-- Lesson 03 assumes GDB basics from Lessons 01-02
-- Later lessons combine techniques from earlier ones
+**Traditional approach**: Each lesson is isolated, start from scratch
+**This curriculum**: Each lesson **extends** the UART CLI built in Lesson 2
 
-**Cannot skip lessons** - each is prerequisite for next.
+By Lesson 5, you have:
+- Complete CLI with 20+ commands
+- Full streaming telemetry
+- Hardware unit tests for every peripheral
+- Real debugging infrastructure
 
-### 2. Hardware Validation Required
+### 2. Learn by Debugging (Not by Reading)
 
-**Every lesson must be tested on real hardware**:
-- Use `/test-hardware` before implementation
-- Validate all commits work
-- Don't proceed with broken hardware
+Every commit has **intentional bugs**:
+- Lesson 02: Buffer overflow, DMA misalignment
+- Lesson 03: PWM frequency wrong, Neopixel color order, RMT timing
+- Lesson 04: I2C speed, axis swap, calibration overflow
+- Lesson 05: Race conditions, power issues, state machine bugs
 
-### 3. Progressive Commits
+Claude Code uses GDB to **diagnose and fix**. README documents the **debugging process**.
 
-**Each lesson has 3-6 commits**:
-- Commit 1: Broken or minimal (discovery phase)
-- Commit 2+: Progressive GDB techniques
-- Final commit: Complete implementation
+### 3. Advanced GDB Throughout (Not Separate "Advanced" Lesson)
 
-**Test each commit** before moving to next lesson.
+Use advanced techniques when needed:
+- **Lesson 02**: Watchpoints (buffer overflow)
+- **Lesson 03**: Python scripting (color testing), Disassembly (RMT timing)
+- **Lesson 04**: Conditional breakpoints (I2C errors), Tracepoints (performance)
+- **Lesson 05**: Watchpoints (race conditions), Statistical analysis (anomaly detection)
 
-### 4. Documentation Quality
+### 4. Hardware-Based Unit Testing
 
-**README for each lesson must include**:
-- Commit-by-commit walkthrough
-- GDB commands for each commit
-- Hardware wiring diagrams
-- Troubleshooting section
-- References to GDB_LESSON_PLANS.md
+CLI + GDB = **automated hardware validation**:
 
-### 5. Collaborative Process
+```
+> gpio.init 12
+OK
+# GDB validates: GPIO_ENABLE_REG bit 12 = 1 ✓
 
-**This is a collaborative workflow**:
-- Agent implements lessons following `/gen-lesson`
-- User validates hardware at checkpoints
-- User confirms before PRs are created
-- User decides when to merge and proceed
+> pwm.init 12 1000
+OK
+# GDB validates: LEDC timer configured for 1 kHz ✓
 
-**Not autonomous** - requires user confirmation at validation points.
+> neo.color 255 0 0
+OK
+# GDB validates: RMT buffer = [0x00, 0xFF, 0x00] (GRB for red) ✓
+```
+
+**No mocks. Real hardware. Automated validation.**
+
+### 5. Build a Real Device
+
+Lesson 05 culminates in a **functional posture monitor**:
+- Can mount on desk or laptop
+- Alerts when tilted beyond threshold
+- Calibratable zero orientation
+- Low-power sleep mode
+- **Actually useful!**
 
 ---
 
 ## Expected Timeline
 
-| Lesson | Duration | Cumulative Time |
-|--------|----------|----------------|
-| Lesson 01 | 60-90 min | 1.5 hrs |
-| Lesson 02 | 90-120 min | 3.5 hrs |
-| Lesson 03 | 90-120 min | 5.5 hrs |
-| Lesson 04 | 120-150 min | 8 hrs |
-| Lesson 05 | 90-120 min | 10 hrs |
-| Lesson 06 | 120-180 min | 13 hrs |
-| Lesson 07 | 150-240 min | 17 hrs |
+| Lesson | Duration | Cumulative |
+|--------|----------|------------|
+| Lesson 01 | 90-120 min | 2 hrs |
+| Lesson 02 | 180-240 min | 6 hrs |
+| Lesson 03 | 180-240 min | 10 hrs |
+| Lesson 04 | 240-300 min | 15 hrs |
+| Lesson 05 | 300-420 min | 22 hrs |
 
-**Total**: 14-28 hours (spread over multiple sessions)
+**Total**: 18-30 hours (spread over 5-8 sessions)
 
 **Recommended schedule**:
-- Day 1: Lessons 01-02 (4-6 hours)
-- Day 2: Lessons 03-04 (4-6 hours)
-- Day 3: Lessons 05-06 (4-6 hours)
-- Day 4: Lesson 07 (3-4 hours)
+- Session 1: Lesson 01 (GPIO + GDB basics)
+- Session 2: Lesson 02 Part 1 (UART + CLI)
+- Session 3: Lesson 02 Part 2 (Streaming + DMA)
+- Session 4: Lesson 03 (PWM + Neopixel)
+- Session 5: Lesson 04 Part 1 (I2C + IMU)
+- Session 6: Lesson 04 Part 2 (State machine)
+- Session 7: Lesson 05 Part 1 (Integration)
+- Session 8: Lesson 05 Part 2 (Debugging + polish)
 
 ---
 
 ## Completion Criteria
 
-All 7 lessons complete when:
+All 5 lessons complete when:
 
 - [ ] All lesson branches merged to main
-- [ ] All PRs closed
-- [ ] All READMEs have commit walkthroughs
-- [ ] All lessons tested on hardware
-- [ ] Progress tracker shows 7/7 complete
-- [ ] Repository has `lessons/01-gpio-gdb/` through `lessons/07-production-debug/`
+- [ ] CLI has 20+ commands across all peripherals
+- [ ] Hardware-based unit tests validate all CLI commands
+- [ ] Posture Monitor device fully functional
+- [ ] All advanced GDB techniques demonstrated (watchpoints, tracepoints, Python scripting, disassembly, conditional breakpoints)
+- [ ] Streaming telemetry parseable (JSON format)
+- [ ] Every intentional bug documented with GDB debugging workflow
 
 ---
 
 ## Tips for Success
 
-**Prepare hardware ahead of time**:
-- Have all components ready before starting
-- Test each peripheral individually
-- Document working pin configurations
-- Keep breadboard organized
+**Hardware setup**:
+- Keep FTDI UART connected permanently (you'll use it constantly)
+- Test each peripheral individually before integrating
+- Document working GPIO pins in a reference file
 
-**Take breaks**:
-- Don't try to do all 7 lessons in one session
-- Review lesson plan between lessons
-- Test thoroughly at each checkpoint
+**Debugging mindset**:
+- Embrace bugs as learning opportunities
+- Use GDB to understand **hardware**, not just code
+- UART telemetry = continuous eyes into running firmware
+- CLI = interactive testing interface (no reflashing needed!)
 
 **Reference materials**:
-- Keep `GDB_LESSON_PLANS.md` open
-- Consult `GDB_REFERENCE.md` for GDB commands
-- Review `GDB_EXECUTIVE_SUMMARY.md` for quick lookup
-
-**Ask for help**:
-- If hardware doesn't work, troubleshoot before proceeding
-- If GDB technique unclear, review reference docs
-- If stuck, take a break and come back fresh
+- esp-hal 1.0.0 docs: https://docs.esp-rs.org/esp-hal/
+- MPU6050 datasheet: https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/
+- WS2812 timing: https://cdn-shop.adafruit.com/datasheets/WS2812.pdf
+- GDB manual: https://sourceware.org/gdb/current/onlinedocs/gdb/
+- LEDC (PWM): ESP32-C6 Technical Reference Manual Chapter 14
 
 ---
 
-**This workflow orchestrates creation of all 7 GDB lessons sequentially, ensuring a complete, tested, and documented curriculum for ESP32-C6 + esp-hal 1.0.0 + GDB discovery-based learning.**
+**This curriculum builds real-world embedded firmware skills with AI-assisted debugging workflows that didn't exist before Claude Code. By the end, you have a complete testing/debugging infrastructure and a functional device.**
