@@ -1,0 +1,32 @@
+[package]
+name = "lesson-05-unit-and-integration-testing"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[[bin]]
+name = "integration_test"
+path = "src/bin/integration_test.rs"
+
+[dependencies]
+# Host tests
+statig = { version = "0.3", default-features = false, features = ["macro"] }
+
+# Device tests (integration_test binary)
+esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
+esp-backtrace = { version = "0.15", features = ["esp32c6", "panic-handler", "println"] }
+esp-println = { version = "0.13", features = ["esp32c6", "log"] }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
+log = "0.4"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false
