@@ -13,22 +13,28 @@ Embedded Rust firmware development for ESP32-C6 using **esp-hal 1.0.0** with pra
 - Bare-metal HAL with direct hardware access
 - Implements embedded-hal 1.0 traits
 
+## Key Features
+
+✅ **Hardware-Validated** - All 5 lessons tested on ESP32-C6 hardware
+✅ **Progressive CLI Architecture** - Each lesson extends a unified command-line interface
+✅ **GDB-Integrated Debugging** - Real-time variable inspection + hardware debugging workflows
+✅ **Claude Code Optimized** - Custom slash commands for lesson generation and automated testing
+✅ **Production-Ready Build Times** - All lessons compile in <2 seconds
+✅ **Comprehensive Documentation** - 2000+ lines of debugging guides, hardware test reports, and curriculum planning
+
 ## Lessons
 
-Progressive tutorials from basic GPIO to advanced debugging:
+Progressive tutorials from basic GPIO to advanced debugging with integrated CLI architecture:
 
-- **[01-button-neopixel](./lessons/01-button-neopixel/)** - GPIO input/output with WS2812 NeoPixel control via RMT peripheral
-- **[02-task-scheduler](./lessons/02-task-scheduler/)** - Cooperative task scheduling and periodic execution
-- **[03-mpu9250](./lessons/03-mpu9250/)** - I2C communication with MPU9250 IMU sensor
-- **[04-static-color-navigator](./lessons/04-static-color-navigator/)** - State machine-based UI navigation with button input
-- **[05-unit-and-integration-testing](./lessons/05-unit-and-integration-testing/)** - Testing strategies for embedded firmware
-- **[06-uart-terminal](./lessons/06-uart-terminal/)** - UART communication and interactive terminal interface
-- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** - Hardware debugging with GDB and OpenOCD
-- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** - Real-time variable streaming + GDB tandem debugging
+- **[01-gpio-gdb-basics](./lessons/01-gpio-gdb-basics/)** - GPIO input/output + GDB fundamentals (breakpoints, variable inspection, function calls)
+- **[02-uart-cli-streaming](./lessons/02-uart-cli-streaming/)** - Interactive CLI + real-time telemetry streaming (foundation for all subsequent lessons)
+- **[03-pwm-neopixel](./lessons/03-pwm-neopixel/)** - PWM control + WS2812 NeoPixel drivers (extends CLI with color commands)
+- **[04-mpu6050-state-machine](./lessons/04-mpu6050-state-machine/)** - I2C communication + MPU6050 IMU + state machine (extends CLI with sensor commands)
+- **[05-posture-monitor](./lessons/05-posture-monitor/)** - Complete integration: tilt detection, visual alerts, automatic posture monitoring
 
-**Status:** Lessons 01, 07, and 08 are fully tested and documented with hardware validation.
+**Status:** ✅ All 5 lessons are **hardware-tested and verified** (see [HARDWARE_TEST_REPORT.md](./HARDWARE_TEST_REPORT.md))
 
-Each lesson builds on previous concepts progressively. Start with Lesson 01 and work sequentially through the curriculum.
+Each lesson builds on the previous CLI framework progressively. Start with Lesson 01 and work sequentially through the curriculum.
 
 ## Quick Start
 
@@ -46,7 +52,7 @@ cargo install espflash esp-generate --locked
 ### Build & Flash
 
 ```bash
-cd lessons/01-button-neopixel
+cd lessons/01-gpio-gdb-basics
 cargo build --release
 cargo run --release  # Flash to ESP32-C6
 ```
@@ -68,13 +74,27 @@ If you encounter build errors:
 
 This project demonstrates multiple debugging approaches:
 
-- **GDB + OpenOCD** (Lesson 07) - Hardware debugging with breakpoints, watchpoints, and variable inspection
-- **UART Variable Streaming** (Lesson 08) - Real-time variable monitoring with GDB tandem debugging
+- **GDB Fundamentals** (Lesson 01) - Hardware debugging with breakpoints, watchpoints, variable inspection, and function calls
+- **UART CLI + Streaming** (Lesson 02-05) - Interactive command interface + real-time telemetry streaming
+- **Progressive Integration** - Each lesson extends the CLI with new peripheral commands (GPIO → UART → PWM → I2C)
 
 ## Documentation
 
-- **[QUICKSTART.md](./QUICKSTART.md)** - Quick start guide
-- **[CLAUDE.md](./CLAUDE.md)** - Guidelines for Claude Code development
+### Getting Started
+- **[QUICKSTART.md](./QUICKSTART.md)** - Quick start guide for hardware setup and first build
+- **[CURRICULUM_STATUS.md](./CURRICULUM_STATUS.md)** - Complete lesson generation status and feature summary
+
+### GDB & Debugging
+- **[GDB_EXECUTIVE_SUMMARY.md](./GDB_EXECUTIVE_SUMMARY.md)** - High-level overview of GDB debugging approach
+- **[GDB_LESSON_PLANS.md](./GDB_LESSON_PLANS.md)** - Detailed lesson planning and progression
+- **[GDB_REFERENCE.md](./GDB_REFERENCE.md)** - GDB command reference and debugging workflows
+
+### Development & Testing
+- **[CLAUDE.md](./CLAUDE.md)** - Guidelines for Claude Code development (model selection, debugging philosophy, hardware testing)
+- **[LESSON_GENERATION_GUIDE.md](./LESSON_GENERATION_GUIDE.md)** - Guide for generating new lessons
+- **[HARDWARE_TEST_REPORT.md](./HARDWARE_TEST_REPORT.md)** - Comprehensive hardware validation results for all 5 lessons
+
+### External Resources
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
 
@@ -108,24 +128,63 @@ No ESP-IDF or C dependencies required.
 
 ```
 lessons/
-├── 01-button-neopixel/       # Lesson 1: GPIO + NeoPixel
-│   ├── src/bin/main.rs
+├── 01-gpio-gdb-basics/           # GPIO + GDB fundamentals
+│   ├── src/bin/main.rs           # LED + button with GDB-callable functions
 │   ├── Cargo.toml
 │   ├── .cargo/config.toml
-│   └── README.md
-├── 02-task-scheduler/        # Lesson 2: Task scheduling
-├── 03-mpu9250/               # Lesson 3: I2C sensor
-└── ...
+│   └── README.md                 # 500+ line debugging guide
+├── 02-uart-cli-streaming/        # Interactive CLI + streaming telemetry
+│   ├── src/bin/main.rs           # CLI parser + mode switching
+│   └── README.md                 # 800+ line comprehensive guide
+├── 03-pwm-neopixel/              # PWM + WS2812 NeoPixel (extends CLI)
+├── 04-mpu6050-state-machine/     # I2C + MPU6050 + FSM (extends CLI)
+└── 05-posture-monitor/           # Complete integration project
 
 .claude/
-├── commands/                 # Custom slash commands
-├── templates/                # Code templates
-└── TESTING-GUIDE.md
+├── commands/                     # Custom slash commands
+│   ├── gen-lesson.md             # Generate new lesson with GDB workflow
+│   ├── gen-all-lessons.md        # Generate complete curriculum
+│   ├── test-all-lessons.md       # Hardware test all lessons
+│   ├── test-uart-pins.md         # Test specific UART GPIO pins
+│   ├── review-repo.md            # Comprehensive repo review
+│   └── ...                       # 9 total slash commands
+├── templates/
+│   ├── uart_test_minimal.rs      # Minimal UART test firmware (73 lines)
+│   ├── read_uart.py              # Time-bounded UART reader
+│   ├── test-all-lessons-reliable.sh
+│   └── ...                       # Testing scripts and templates
+└── TEST.md.template              # Lesson test procedure template
 
 scripts/
-├── find-esp32-ports.sh       # Auto port detection
-└── ...
+├── find-esp32-ports.sh           # Auto-detect ESP32 USB-JTAG and UART ports
+├── test-uart-pins.sh             # Automated GPIO pin verification
+├── monitor.py                    # UART monitoring with timeout
+├── clean-targets.sh              # Clean all lesson build artifacts
+└── ...                           # 7 total automation scripts
 ```
+
+## Claude Code Integration
+
+This repository includes extensive Claude Code automation:
+
+### Custom Slash Commands
+
+- `/gen-lesson <number> <name>` - Generate new lesson with complete GDB workflow
+- `/gen-all-lessons` - Generate entire curriculum (used to create all 5 lessons)
+- `/test-all-lessons [mode]` - Hardware test all lessons (quick/full modes)
+- `/test-uart-pins <tx> <rx> [duration]` - Test specific UART GPIO configuration
+- `/review-repo` - Comprehensive repository review and validation
+- `/check-manufacturing` - Real-time component availability and DFM validation
+- `/estimate-cost [quantity]` - BOM cost analysis with quantity breaks
+
+### Testing Infrastructure
+
+- **Automated hardware testing** - Probe-rs based testing without TTY requirements
+- **Progressive commit workflow** - Hardware-validated commits with GDB checkpoints
+- **Time-bounded serial operations** - No conversation-freezing operations
+- **Port auto-detection** - Automatic ESP32 USB-JTAG and UART discovery
+
+See [CLAUDE.md](./CLAUDE.md) for complete development guidelines.
 
 ## License
 
